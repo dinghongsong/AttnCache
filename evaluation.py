@@ -11,7 +11,10 @@ import argparse
 from prettytable import PrettyTable
 import transformers
 from transformers import LlamaTokenizer
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, BitsAndBytesConfig, AutoModelForCausalLM, QuantoConfig
+from models.modeling_llama_new import LlamaForCausalLM
+from models.configuration_llama import LlamaConfig
+
 # Set up logger
 logging.basicConfig(format='%(asctime)s : %(message)s', level=logging.DEBUG)
 
@@ -64,8 +67,27 @@ def main():
     parser.add_argument('--tensor_parallel', action='store_true')
     parser.add_argument('--prompt_method', type=str, default='prompteol', help="What prompt method to use (prompteol/metaeol).")
 
-    args = parser.parse_args()
+    #################################  attn memo
+    parser.add_argument('--is_attn_memo', action='store_true')
+    parser.add_argument('--is_LazyFormer', action='store_true')
+    parser.add_argument('--is_SAN', action='store_true') 
+    parser.add_argument('--is_block_drop', action='store_true') 
+    parser.add_argument('--is_attn_drop', action='store_true') 
+    parser.add_argument('--is_attn_cache', action='store_true')
+    parser.add_argument('--task_name', type=str, default="STS16")
+    parser.add_argument('--collect_hiddenstates_apms', action='store_true')
+    parser.add_argument('--save_dir', default="/home/sdh/MetaEOL/MetaEOL/database/Llama-3.2-3B-Instruct/", type=str)
+    parser.add_argument('--threshold', type=float, default=0.9999, help='The threshold to decide whether to use attn replacement.')
+    parser.add_argument('--training_epoch', type=int, default=2,  help='The epoch of training embedding model and generating vector DB')
+    parser.add_argument('--replace_layer', type=int, default=4,  help='The layer that is not replaced by attn memo from 0 ~ replace_layer')
+    parser.add_argument('--batch_size', type=int, default=128,  help='batch_size')
+    parser.add_argument('--max_length', type=int, default=128,  help='max_length') 
 
+    args = parser.parse_args()
+    args.save_dir += args.task_name
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    # device = torch.device("cpu")
+    token = "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"
     if args.tensor_parallel:
         import tensor_parallel as tp
         n_gpus = len(os.environ['CUDA_VISIBLE_DEVICES'].split(','))
@@ -73,20 +95,59 @@ def main():
                                                      low_cpu_mem_usage = True, torch_dtype=torch.float16)
         model = tp.tensor_parallel(model, [i for i in range(n_gpus)])
     else:
-        model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path,
-                                                     device_map='auto',
-                                                     output_hidden_states=True,
-                                                     trust_remote_code=True)
+        # model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path,
+        #                                              token=token,
+        #                                              device_map='auto',
+        #                                              output_hidden_states=True,
+        #                                              trust_remote_code=True)
+        # configuration
+        config = LlamaConfig.from_pretrained('meta-llama/Llama-3.2-3B-Instruct')
+        config.is_attn_memo=args.is_attn_memo
+        config.collect_hiddenstates_apms=args.collect_hiddenstates_apms
+        config.is_LazyFormer=args.is_LazyFormer
+        config.is_SAN=args.is_SAN
+        config.is_block_drop=args.is_block_drop
+        config.is_attn_drop=args.is_attn_drop
+        config.is_attn_cache=args.is_attn_cache
+        config.save_dir=args.save_dir
+        config.threshold=args.threshold
+        config.training_epoch=args.training_epoch
+        config.replace_layer=args.replace_layer
+        config.batch_size=args.batch_size
+        config.max_length=args.max_length
 
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path)
+        
+
+
+
+        # nf4_config = BitsAndBytesConfig(
+        #     load_in_8bit=True
+        # )
+        
+     
+        model = LlamaForCausalLM.from_pretrained('meta-llama/Llama-3.2-3B-Instruct',
+                                                     token=token,
+                                                    #  device_map='auto',
+                                                    #  output_hidden_states=True,
+                                                    #  return_dict=True,
+                                                    #  trust_remote_code=True,
+                                                     config=config,
+                                                    #  quantization_config=QuantoConfig(weights="float8"),
+                                                     ).to(device)
+
+        for name, param in model.named_parameters():
+            param.data = param.data.to(device)  # 为每个参数分配内存
+
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, token=token)
     tokenizer.pad_token_id = 0  # Set the padding token. we want this to be different from the eos token
     tokenizer.padding_side = "left"  # Allow batched inference
 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     # Set up the tasks
     if args.task_set == 'sts':
-        args.tasks = ['STS12', 'STS13', 'STS14', 'STS15', 'STS16', 'STSBenchmark', 'SICKRelatedness']
+        # args.tasks = ['STS12', 'STS13', 'STS14', 'STS15', 'STS16', 'STSBenchmark', 'SICKRelatedness']
+        args.tasks = ['STS12']
         if args.mode == 'dev':
             args.tasks = ['STSBenchmark-dev']
     elif args.task_set == 'transfer':
@@ -103,7 +164,7 @@ def main():
                                          'tenacity': 3, 'epoch_size': 2}
     elif args.mode == 'test':
         # Full mode
-        params = {'task_path': PATH_TO_DATA, 'usepytorch': True, 'kfold': 10, 'batch_size':2}
+        params = {'task_path': PATH_TO_DATA, 'usepytorch': True, 'kfold': 10, 'batch_size':config.batch_size}
         params['classifier'] = {'nhid': 0, 'optim': 'adam', 'batch_size': 64,
                                          'tenacity': 5, 'epoch_size': 4}
     else:
@@ -132,7 +193,7 @@ def main():
             batch = [[word.decode('utf-8') for word in s] for s in batch]
 
         sentences = [' '.join(s) for s in batch]
-        input_sentences = [' '.join(s) for s in batch]
+        # input_sentences = [' '.join(s) for s in batch]
         if max_length == 500:
             sentences = [tokenizer.decode(tokenizer.encode(s, add_special_tokens=False)[:max_length]) for s in sentences]
             max_length = 512
@@ -145,14 +206,20 @@ def main():
             for prompt in task_prompts:
                 new_sentences.append(prompt.replace('*sent 0*', s).strip())
         sentences = new_sentences
-
+        # print("sentence: ", sentences[0])
+        max_length = 128
         batch = tokenizer.batch_encode_plus(
             sentences,
             return_tensors='pt',
-            padding=True,
+            # padding=True,
+            padding="max_length",
             max_length=max_length,
             truncation=max_length is not None
         )
+        # print(batch['input_ids'][0])
+        # tokens = tokenizer.convert_ids_to_tokens(batch['input_ids'][0])
+        # print("Tokens:", tokens)
+        # print(batch['attention_mask'][0])
 
         # Move to the correct device
         for k in batch:
@@ -160,7 +227,9 @@ def main():
 
         # Get raw embeddings
         with torch.no_grad():
-            hidden_states = model(output_hidden_states=True, return_dict=True, **batch).hidden_states
+            outputs, last_records, last_reuse_tensor_index =  model(output_hidden_states=True, return_dict=True, **batch)
+            attentions = outputs.attentions
+            hidden_states = outputs.hidden_states
             outputs = hidden_states[-1][:, -1, :]
             outputs = outputs.view(-1, len(task_prompts), outputs.size()[1]).mean(dim=1) # Average the embeddings from different tasks 
 
@@ -168,13 +237,13 @@ def main():
                 # bfloat16 not support for .numpy()
                 outputs = outputs.float()
 
-            return outputs.cpu()
+            return outputs.cpu(), attentions, last_records, last_reuse_tensor_index
 
     results = {}
 
     for task in args.tasks:
         se = senteval.engine.SE(params, batcher, prepare)
-        result = se.eval(task)
+        result = se.eval(task, config.collect_hiddenstates_apms)
         results[task] = result
 
     # Print evaluation results
