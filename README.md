@@ -1,19 +1,17 @@
 # Code Implementation for AttnCache
-## Python Env
+## Conda Env
 
 ```
-conda create -n metaeol_39 python=3.9
-conda activate metaeol_39
-
-pip install -r requirements.txt
+conda env create -f environment.yml
+conda activate AttnCache
 ```
 
 ## Download data
 
 ``` sh
-cd SentEval/data/downstream/
+
 bash download_dataset.sh
-cd -
+
 ```
 ## Preprocess
 
