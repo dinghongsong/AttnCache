@@ -29,6 +29,15 @@ python evaluation.py \
 
 ### Train Feature Projector and Build Index DB
 
+```
+python train_fp_and_build_db.py \
+        --epoch 2 \
+        --batchsize 64 \
+        --task_name STS13 \
+        --is_attn_memo \
+        --save_dir /home/sdh/AttnCache/AttnCache/database/Llama-3.2-3B-Instruct/
+```
+
 ## Running Script
 ```
 python evaluation.py --model_name_or_path "mistralai/Mistral-7B-v0.1" --mode test --task_set sts --prompt_method prompteol

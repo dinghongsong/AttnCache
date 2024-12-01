@@ -471,11 +471,11 @@ class LlamaAttention(nn.Module):
             self.vecDB.load(f"{self.data_dir}/VectorDB/attn_memo_epoch-{epoch}_vectors.faiss") 
             self.emb = Emb(f"{self.data_dir}/Embedding_models/mlp_model_attn_memo-epoch{epoch}.pth")
 
-        elif self.config.is_attn_cache:
-            self.vecDB = VecDB()
-            epoch = self.config.training_epoch
-            self.vecDB.load(f"{self.data_dir}/VectorDB/attn_cache_epoch-{epoch}_vectors.faiss") 
-            self.emb = Emb(f"{self.data_dir}/Embedding_models/mlp_model_attn_cache-epoch{epoch}.pth")
+        # elif self.config.is_attn_cache:
+        #     self.vecDB = VecDB()
+        #     epoch = self.config.training_epoch
+        #     self.vecDB.load(f"{self.data_dir}/VectorDB/attn_cache_epoch-{epoch}_vectors.faiss") 
+        #     self.emb = Emb(f"{self.data_dir}/Embedding_models/mlp_model_attn_cache-epoch{epoch}.pth")
             # print(self.emb.emb)
             # # for name, param in self.emb.emb.named_parameters():
             # #     param.data = param.data.to_empty(device="cpu")#to("cuda")
@@ -1513,12 +1513,13 @@ class LlamaModel(LlamaPreTrainedModel):
             self.vecDB = VecDB()
             epoch = self.config.training_epoch
             self.data_dir = self.config.save_dir    
-            self.vecDB.load(f"{self.data_dir}/VectorDB/mlp_epoch_attn_mask-{epoch}_vectors.faiss") 
-            self.emb = Emb(f"{self.data_dir}/Embedding_models/mlp_model_attn_mask-epoch{epoch}.pth")
-
+            self.vecDB.load(f"{self.data_dir}/VectorDB/attn_cache_epoch-{epoch}_vectors.faiss") 
+            self.emb = Emb(f"{self.data_dir}/Embedding_models/mlp_model_attn_cache-epoch{epoch}.pth")
+  
+           
             threshold = self.config.threshold
             x = self.layers[0].input_layernorm(hidden_states)
-            feature_vector = self.emb.embed(x).cpu().detach().numpy()
+            feature_vector = self.emb.embed(x.detach().numpy())
             sims, idx_list = self.vecDB.search(feature_vector)
 
             reuse_tensor_index = np.flatnonzero(1 - sims >= threshold)

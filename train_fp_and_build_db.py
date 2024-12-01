@@ -52,7 +52,7 @@ def train_feature_projector(args):
     learning_rate = 0.1
     momentum = 0.9
     optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum)
-    datasets = HiddenStatesAPMsDataset(args.dataset_dir)
+    datasets = HiddenStatesAPMsDataset(args.save_dir)
     pwdist = torch.nn.PairwiseDistance()
     loss_fn = torch.nn.SmoothL1Loss()
     train_loader = DataLoader(datasets, batch_size=args.batchsize, shuffle=True)
@@ -82,9 +82,9 @@ def train_feature_projector(args):
 
 def build_index_database(model, args):
     vecdb = VecDB()
-    files_num = len(os.listdir(f"{args.dataset_dir}/HiddenStatesDB"))
+    files_num = len(os.listdir(f"{args.save_dir}/HiddenStatesDB"))
     for i in tqdm(range(files_num)):
-        with open(f"{args.dataset_dir}/HiddenStatesDB/" + str(i) + ".pickle", 'rb') as f:
+        with open(f"{args.save_dir}/HiddenStatesDB/" + str(i) + ".pickle", 'rb') as f:
             hidden = pickle.load(f)
         if i == 0:
             layer_tensor =  model.embed(hidden)
@@ -105,18 +105,18 @@ if __name__ == "__main__" :
     parser.add_argument('--task_name', default="STS16", help="Comma separated. Default is None i.e. running all tasks")
     parser.add_argument('--is_attn_cache', action='store_true', default=False)
     parser.add_argument('--is_attn_memo', action='store_true', default=False)
-    parser.add_argument('--dataset_dir', type=str, default="/home/sdh/MetaEOL/MetaEOL/database/Llama-3.2-3B-Instruct", help='dataset_dir')
+    parser.add_argument('--save_dir', type=str, default="/home/sdh/AttnCache/AttnCache/database/Llama-3.2-3B-Instruct/", help='save_dir')
 
     args = parser.parse_args()
-    args.dataset_dir += "/" + args.task_name
+    args.save_dir += "/" + args.task_name
     args.device = "cuda" if torch.cuda.is_available() else "cpu"
 
     if args.is_attn_memo:
-        args.model_save_path = f'{args.dataset_dir}/Embedding_models/mlp_model_attn_memo-epoch{args.epoch}.pth'
-        args.db_save_path =  f"{args.dataset_dir}/VectorDB/attn_memo_epoch-{args.epoch}_vectors.faiss"
+        args.model_save_path = f'{args.save_dir}/Embedding_models/mlp_model_attn_memo-epoch{args.epoch}.pth'
+        args.db_save_path =  f"{args.save_dir}/VectorDB/attn_memo_epoch-{args.epoch}_vectors.faiss"
     elif args.is_attn_cache:
-        args.model_save_path = f'{args.dataset_dir}/Embedding_models/mlp_model_attn_cache-epoch{args.epoch}.pth'
-        args.db_save_path =  f"{args.dataset_dir}/VectorDB/attn_cache_epoch-{args.epoch}_vectors.faiss"
+        args.model_save_path = f'{args.save_dir}/Embedding_models/mlp_model_attn_cache-epoch{args.epoch}.pth'
+        args.db_save_path =  f"{args.save_dir}/VectorDB/attn_cache_epoch-{args.epoch}_vectors.faiss"
 
 
     print("===========================")
