@@ -12,7 +12,7 @@ from prettytable import PrettyTable
 import transformers
 from transformers import LlamaTokenizer
 from transformers import AutoTokenizer, BitsAndBytesConfig, AutoModelForCausalLM, QuantoConfig
-from models.modeling_llama_new import LlamaForCausalLM
+from models.modeling_llama import LlamaForCausalLM
 from models.configuration_llama import LlamaConfig
 
 # Set up logger
@@ -55,7 +55,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--tokenizer_name", type=str, default='')
     parser.add_argument("--model_name_or_path", type=str,
-                        help="Transformers' model name or path")
+                        help="Transformers' model name or path", 
+                        default="meta-llama/Llama-3.2-3B-Instruct")
     parser.add_argument("--mode", type=str,
                         choices=['dev', 'test', 'fasttest'],
                         default='test',
@@ -74,7 +75,7 @@ def main():
     parser.add_argument('--is_block_drop', action='store_true') 
     parser.add_argument('--is_attn_drop', action='store_true') 
     parser.add_argument('--is_attn_cache', action='store_true')
-    parser.add_argument('--task_name', type=str, default="STS16")
+    parser.add_argument('--task_name', type=str, default="STS13")
     parser.add_argument('--collect_hiddenstates_apms', action='store_true')
     parser.add_argument('--save_dir', default="/home/sdh/MetaEOL/MetaEOL/database/Llama-3.2-3B-Instruct/", type=str)
     parser.add_argument('--threshold', type=float, default=0.9999, help='The threshold to decide whether to use attn replacement.')
@@ -95,11 +96,6 @@ def main():
                                                      low_cpu_mem_usage = True, torch_dtype=torch.float16)
         model = tp.tensor_parallel(model, [i for i in range(n_gpus)])
     else:
-        # model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path,
-        #                                              token=token,
-        #                                              device_map='auto',
-        #                                              output_hidden_states=True,
-        #                                              trust_remote_code=True)
         # configuration
         config = LlamaConfig.from_pretrained('meta-llama/Llama-3.2-3B-Instruct')
         config.is_attn_memo=args.is_attn_memo
@@ -116,27 +112,13 @@ def main():
         config.batch_size=args.batch_size
         config.max_length=args.max_length
 
-        
-
-
-
         # nf4_config = BitsAndBytesConfig(
         #     load_in_8bit=True
         # )
         
-     
-        model = LlamaForCausalLM.from_pretrained('meta-llama/Llama-3.2-3B-Instruct',
-                                                     token=token,
-                                                    #  device_map='auto',
-                                                    #  output_hidden_states=True,
-                                                    #  return_dict=True,
-                                                    #  trust_remote_code=True,
-                                                     config=config,
+        model = LlamaForCausalLM.from_pretrained(args.model_name_or_path, token=token, config=config,
                                                     #  quantization_config=QuantoConfig(weights="float8"),
                                                      ).to(device)
-
-        for name, param in model.named_parameters():
-            param.data = param.data.to(device)  # 为每个参数分配内存
 
     tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, token=token)
     tokenizer.pad_token_id = 0  # Set the padding token. we want this to be different from the eos token
@@ -239,7 +221,11 @@ def main():
             return outputs.cpu(), attentions, last_records, last_reuse_tensor_index
 
     results = {}
-
+    
+    print("===========================")
+    print("Args: ", args)
+    print("===========================")
+    
     for task in args.tasks:
         print(f"================= start eval task {task} ===============================================================")
         se = senteval.engine.SE(params, batcher, prepare)

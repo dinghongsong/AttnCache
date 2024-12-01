@@ -458,8 +458,7 @@ class LlamaAttention(nn.Module):
         self.data_dir = self.config.save_dir
 
         if self.config.collect_hiddenstates_apms:
-            # category = ["APMsDB", "HiddenStatesDB", "Embedding_models", "VectorDB"]
-            category = ['AttnMask']
+            category = ["APMsDB", "HiddenStatesDB", "Embedding_models", "VectorDB","AttnMask"]
             for cat in category:
                 dir = os.path.join(self.data_dir, f"{cat}")
                 if os.path.exists(dir):
@@ -475,8 +474,8 @@ class LlamaAttention(nn.Module):
         elif self.config.is_attn_cache:
             self.vecDB = VecDB()
             epoch = self.config.training_epoch
-            self.vecDB.load(f"{self.data_dir}/VectorDB/mlp_epoch_attn_mask-{epoch}_vectors.faiss") 
-            self.emb = Emb(f"{self.data_dir}/Embedding_models/mlp_model_attn_mask-epoch{epoch}.pth")
+            self.vecDB.load(f"{self.data_dir}/VectorDB/attn_cache_epoch-{epoch}_vectors.faiss") 
+            self.emb = Emb(f"{self.data_dir}/Embedding_models/mlp_model_attn_cache-epoch{epoch}.pth")
             # print(self.emb.emb)
             # # for name, param in self.emb.emb.named_parameters():
             # #     param.data = param.data.to_empty(device="cpu")#to("cuda")
@@ -572,11 +571,10 @@ class LlamaAttention(nn.Module):
         else:
             attn_output = self.o_proj(attn_output)
 
-        if not output_attentions:
-            attn_weights = None
+        # if not output_attentions:
+        #     attn_weights = None
 
-        return attn_output, attn_weights, past_key_value, None, None, None
-
+        return attn_output, attn_weights, past_key_value
     def collect_hiddenstates_apms(
         self,
         hidden_states: torch.Tensor,
@@ -613,29 +611,22 @@ class LlamaAttention(nn.Module):
         attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
        
 
-        ########################## collect attention_probs / hidden_states
-        # if self.config.collect_hiddenstates_apms:
-        #     files_num = len(os.listdir(f"{self.data_dir}/APMsDB"))
-
-        #     with open(f"{self.data_dir}/APMsDB/{files_num}.pickle", "wb") as file:
-        #         pickle.dump(attn_weights.cpu().detach().numpy(), file)
-        #     with open(f"{self.data_dir}/HiddenStatesDB/{files_num}.pickle", "wb") as file:
-        #         pickle.dump(hidden_states.cpu().detach().numpy(), file)
-            
-        #     files_num += 1
-        #     print(f"===== saved {files_num} APMs and HiddenStates to {self.data_dir}")
-        ###########################
-
-        ######################### collect attention_mask
+        ######################### collect attention_probs / hidden_states
         if self.config.collect_hiddenstates_apms:
-            files_num = len(os.listdir(f"{self.data_dir}/AttnMask"))
+            files_num = len(os.listdir(f"{self.data_dir}/APMsDB"))
+
+            with open(f"{self.data_dir}/APMsDB/{files_num}.pickle", "wb") as file:
+                pickle.dump(attn_weights.cpu().detach().numpy(), file)
+
+            with open(f"{self.data_dir}/HiddenStatesDB/{files_num}.pickle", "wb") as file:
+                pickle.dump(hidden_states.cpu().detach().numpy(), file)
 
             with open(f"{self.data_dir}/AttnMask/{files_num}.pickle", "wb") as file:
                 pickle.dump(causal_mask.cpu().detach().numpy(), file)
 
             
             files_num += 1
-            print(f"===== saved {files_num} AttnMask to {self.data_dir}")
+            print(f"===== saved {files_num} AttnMask, APMs and HiddenStates to {self.data_dir}")
         ##########################
 
         attn_output = torch.matmul(attn_weights, value_states)
@@ -643,7 +634,7 @@ class LlamaAttention(nn.Module):
         attn_output = attn_output.reshape(bsz, q_len, -1)
         attn_output = self.o_proj(attn_output)
         
-        return attn_output, None, past_key_value, None, None, None
+        return attn_output, None, past_key_value
 
 
     def without_memo(
@@ -700,7 +691,7 @@ class LlamaAttention(nn.Module):
         # print(f"layer {self.layer_idx} without attmemo time: ", (other_time_e - start_t) * 1000)
 
         # return attn_output, attn_weights, past_key_value
-        return attn_output, attn_weights, past_key_value, None, None, None
+        return attn_output, attn_weights, past_key_value
 
 
 
@@ -715,8 +706,6 @@ class LlamaAttention(nn.Module):
         cache_position: Optional[torch.LongTensor] = None,
         position_embeddings: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,  # will become mandatory in v4.46
         last_self_attns: Optional[torch.Tensor] = None,
-        records: Optional[torch.Tensor] = None, 
-        reuse_tensor_index: Optional[torch.Tensor] = None,
         compute_tensor_index: Optional[torch.Tensor] = None,
         **kwargs,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
@@ -746,9 +735,9 @@ class LlamaAttention(nn.Module):
                 attn_output = attn_output.reshape(bsz, q_len, -1)
                 attn_output = self.o_proj(attn_output)
 
-                return attn_output, last_self_attns, past_key_value, None, None, None
+                return attn_output, last_self_attns, past_key_value,
 
-        if self.config.is_SAN:
+        elif self.config.is_SAN:
             keep_layers = [0,1, 5,6,7,8,9,10,11,12,13,14,15,16,26,27]
             if self.layer_idx in keep_layers:
                 print("exact layer: ", self.layer_idx)
@@ -767,162 +756,101 @@ class LlamaAttention(nn.Module):
                 attn_output = attn_output.reshape(bsz, q_len, -1)
                 attn_output = self.o_proj(attn_output)
 
-                return attn_output, last_self_attns, past_key_value, None, None, None
+                return attn_output, last_self_attns, past_key_value
+
+        elif self.config.collect_hiddenstates_apms:
+                return self.collect_hiddenstates_apms(hidden_states, attention_mask, position_ids,
+                                    past_key_value, output_attentions, use_cache,
+                                    cache_position, position_embeddings, **kwargs)
 
         elif self.config.is_attn_memo:  # use attn_memo
-            if self.config.collect_hiddenstates_apms:
-                return self.collect_hiddenstates_apms(hidden_states, attention_mask, position_ids,
-                                    past_key_value, output_attentions, use_cache,
-                                    cache_position, position_embeddings, **kwargs)
-        
             
-            else:
-                bsz, q_len, _ = hidden_states.size()
-                value_states = self.v_proj(hidden_states)
-                value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
-                value_states = repeat_kv(value_states, self.num_key_value_groups)
-                
-                threshold = self.config.threshold
-                # feature_vector = self.emb.embed(hidden_states.cpu().detach().numpy())
-                feature_vector = self.emb.embed(hidden_states.detach().numpy())
-                sims, idx_list = self.vecDB.search(feature_vector)
+            bsz, q_len, _ = hidden_states.size()
+            value_states = self.v_proj(hidden_states)
+            value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+            value_states = repeat_kv(value_states, self.num_key_value_groups)
+            
+            threshold = self.config.threshold
+            # feature_vector = self.emb.embed(hidden_states.cpu().detach().numpy())
+            feature_vector = self.emb.embed(hidden_states.detach().numpy())
+            sims, idx_list = self.vecDB.search(feature_vector)
 
-                reuse_tensor_index = np.flatnonzero(1 - sims >= threshold)
-                records = idx_list[reuse_tensor_index]
-                compute_tensor_index = np.flatnonzero(1-sims < threshold)
-                
-                # print(f"=========== layer {self.layer_idx} hit {len(reuse_tensor_index)} APMs")
-                for idx, record in zip(reuse_tensor_index, records):
-                    # print(f"=========== layer {self.layer_idx} hit {record[0]} APM")
-                    with open(f"{self.data_dir}/APMsDB/{record[0]}.pickle", "rb") as file:
-                        attn_weights = pickle.load(file)
-                        self.attention_probs[idx] = torch.from_numpy(attn_weights).to(hidden_states.device)
+            reuse_tensor_index = np.flatnonzero(1 - sims >= threshold)
+            records = idx_list[reuse_tensor_index]
+            compute_tensor_index = np.flatnonzero(1-sims < threshold)
+            
+            # print(f"=========== layer {self.layer_idx} hit {len(reuse_tensor_index)} APMs")
+            for idx, record in zip(reuse_tensor_index, records):
+                # print(f"=========== layer {self.layer_idx} hit {record[0]} APM")
+                with open(f"{self.data_dir}/APMsDB/{record[0]}.pickle", "rb") as file:
+                    attn_weights = pickle.load(file)
+                    self.attention_probs[idx] = torch.from_numpy(attn_weights).to(hidden_states.device)
 
-                if len(reuse_tensor_index) != bsz:  
-                    compute_bsz = len(compute_tensor_index)
-                    print(f"=========== layer {self.layer_idx} no hit {compute_bsz} APMs")
-                    part_hidden_states = hidden_states[compute_tensor_index]
-                    query_states = self.q_proj(part_hidden_states)
-                    key_states = self.k_proj(part_hidden_states)
-                    query_states = query_states.view(compute_bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
-                    key_states = key_states.view(compute_bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
-                    cos, sin = position_embeddings
-                    query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
-                    key_states = repeat_kv(key_states, self.num_key_value_groups)
-                        
-                    attn_weights = torch.matmul(query_states, key_states.transpose(2, 3)) / math.sqrt(self.head_dim)
-                    if attention_mask is not None: 
-                        causal_mask = attention_mask[compute_tensor_index]
-                        attn_weights = attn_weights + causal_mask
-                    attention_probs_compute = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
-                    for idx, i in zip(compute_tensor_index, range(len(compute_tensor_index))):
-                        self.attention_probs[idx] = attention_probs_compute[i]
+            if len(reuse_tensor_index) != bsz:  
+                compute_bsz = len(compute_tensor_index)
+                print(f"=========== layer {self.layer_idx} no hit {compute_bsz} APMs")
+                part_hidden_states = hidden_states[compute_tensor_index]
+                query_states = self.q_proj(part_hidden_states)
+                key_states = self.k_proj(part_hidden_states)
+                query_states = query_states.view(compute_bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
+                key_states = key_states.view(compute_bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+                cos, sin = position_embeddings
+                query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
+                key_states = repeat_kv(key_states, self.num_key_value_groups)
+                    
+                attn_weights = torch.matmul(query_states, key_states.transpose(2, 3)) / math.sqrt(self.head_dim)
+                if attention_mask is not None: 
+                    causal_mask = attention_mask[compute_tensor_index]
+                    attn_weights = attn_weights + causal_mask
+                attention_probs_compute = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
+                for idx, i in zip(compute_tensor_index, range(len(compute_tensor_index))):
+                    self.attention_probs[idx] = attention_probs_compute[i]
 
-                self.attention_probs = self.attention_probs.to(hidden_states.device)    
-                attn_output = torch.matmul(self.attention_probs[:value_states.shape[0], :, :, :], value_states)
-                attn_output = attn_output.transpose(1, 2).contiguous()
-                attn_output = attn_output.reshape(bsz, q_len, -1)
-                attn_output = self.o_proj(attn_output)
-                
-            return attn_output, None, past_key_value, None, None, None
-        
+            self.attention_probs = self.attention_probs.to(hidden_states.device)    
+            attn_output = torch.matmul(self.attention_probs[:value_states.shape[0], :, :, :], value_states)
+            attn_output = attn_output.transpose(1, 2).contiguous()
+            attn_output = attn_output.reshape(bsz, q_len, -1)
+            attn_output = self.o_proj(attn_output)
+            
+            return attn_output, None, past_key_value
+    
 
         elif self.config.is_attn_cache:  # use attn_memo
-            if self.config.collect_hiddenstates_apms:
-                return self.collect_hiddenstates_apms(hidden_states, attention_mask, position_ids,
-                                    past_key_value, output_attentions, use_cache,
-                                    cache_position, position_embeddings, **kwargs)
+                         
+            bsz, q_len, _ = hidden_states.size()
+            value_states = self.v_proj(hidden_states)
+            value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+            value_states = repeat_kv(value_states, self.num_key_value_groups)
+
+            if compute_tensor_index.size:  
+
+                # compute_tensor_index = np.array(range(hidden_states.shape[0]))
+                compute_bsz = len(compute_tensor_index)
+                print(f"=========== layer {self.layer_idx} no hit {compute_bsz} APMs")
+                part_hidden_states = hidden_states[compute_tensor_index]
+                query_states = self.q_proj(part_hidden_states)
+                key_states = self.k_proj(part_hidden_states)
+                query_states = query_states.view(compute_bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
+                key_states = key_states.view(compute_bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+                cos, sin = position_embeddings
+                query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
+                key_states = repeat_kv(key_states, self.num_key_value_groups)
+                    
+                attn_weights = torch.matmul(query_states, key_states.transpose(2, 3)) / math.sqrt(self.head_dim)
+                if attention_mask is not None: 
+                    causal_mask = attention_mask[compute_tensor_index]
+                    attn_weights = attn_weights + causal_mask
+                attention_probs_compute = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
+                for idx, i in zip(compute_tensor_index, range(len(compute_tensor_index))):
+                    last_self_attns[idx] = attention_probs_compute[i]
         
-            else:                
-                bsz, q_len, _ = hidden_states.size()
-                value_states = self.v_proj(hidden_states)
-                value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
-                value_states = repeat_kv(value_states, self.num_key_value_groups)
-
-                if self.layer_idx == 0:
-                    #search engine    
-                    threshold = self.config.threshold
-                    # feature_vector = self.emb.embed(hidden_states.cpu().detach().numpy())
-                    feature_vector = self.emb.embed(hidden_states).cpu().detach().numpy()
-                    sims, idx_list = self.vecDB.search(feature_vector)
-
-                    reuse_tensor_index = np.flatnonzero(1 - sims >= threshold)
-                    records = idx_list[reuse_tensor_index]
-                    compute_tensor_index = np.flatnonzero(1-sims < threshold)
-                    
-                    
-                    
-                    # print(f"=========== layer {self.layer_idx} hit {len(reuse_tensor_index)} APMs")
-                    for idx, record in zip(reuse_tensor_index, records):
-                        # print(f"=========== layer {self.layer_idx} hit {record[0]} APM")
-                        with open(f"{self.data_dir}/APMsDB/{record[0]}.pickle", "rb") as file:
-                            attn_weights = pickle.load(file)
-                            self.attention_probs[idx] = torch.from_numpy(attn_weights).to(hidden_states.device)
-
-
-
-                    if len(reuse_tensor_index) != bsz:  
-
-                        # compute_tensor_index = np.array(range(hidden_states.shape[0]))
-                        compute_bsz = len(compute_tensor_index)
-                        print(f"=========== layer {self.layer_idx} no hit {compute_bsz} APMs")
-                        part_hidden_states = hidden_states[compute_tensor_index]
-                        query_states = self.q_proj(part_hidden_states)
-                        key_states = self.k_proj(part_hidden_states)
-                        query_states = query_states.view(compute_bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
-                        key_states = key_states.view(compute_bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
-                        cos, sin = position_embeddings
-                        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
-                        key_states = repeat_kv(key_states, self.num_key_value_groups)
-                           
-                        attn_weights = torch.matmul(query_states, key_states.transpose(2, 3)) / math.sqrt(self.head_dim)
-                        if attention_mask is not None: 
-                            causal_mask = attention_mask[compute_tensor_index]
-                            attn_weights = attn_weights + causal_mask
-                        attention_probs_compute = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
-                        for idx, i in zip(compute_tensor_index, range(len(compute_tensor_index))):
-                            self.attention_probs[idx] = attention_probs_compute[i]
-                
-                else:
-                    if len(reuse_tensor_index):
-                        records += 1
-                        for idx, record in zip(reuse_tensor_index, records):
-                            # print(f"=========== layer {self.layer_idx} hit {record[0]} APM")
-                            with open(f"{self.data_dir}/APMsDB/{record[0]}.pickle", "rb") as file:
-                                attn_weights = pickle.load(file)
-                                self.attention_probs[idx] = torch.from_numpy(attn_weights).to(hidden_states.device)
-                    
-                    
-                    if len(compute_tensor_index):
-                        compute_bsz = len(compute_tensor_index)
-                        print(f"=========== layer {self.layer_idx} no hit {compute_bsz} APMs")
-                        
-                        part_hidden_states = hidden_states[compute_tensor_index]
-                        query_states = self.q_proj(part_hidden_states)
-                        key_states = self.k_proj(part_hidden_states)
-                        query_states = query_states.view(compute_bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
-                        key_states = key_states.view(compute_bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
-                        cos, sin = position_embeddings
-                        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
-                        key_states = repeat_kv(key_states, self.num_key_value_groups)
-                        
-                        attn_weights = torch.matmul(query_states, key_states.transpose(2, 3)) / math.sqrt(self.head_dim)
-                        if attention_mask is not None: 
-                            causal_mask = attention_mask[compute_tensor_index]
-                            attn_weights = attn_weights + causal_mask
-                        attention_probs_compute = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
-                        for idx, i in zip(compute_tensor_index, range(len(compute_tensor_index))):
-                            self.attention_probs[idx] = attention_probs_compute[i]
-                        
-                       
-
-                self.attention_probs = self.attention_probs.to(hidden_states.device)   
-                attn_output = torch.matmul(self.attention_probs[:value_states.shape[0], :, :, :], value_states)
-                attn_output = attn_output.transpose(1, 2).contiguous()
-                attn_output = attn_output.reshape(bsz, q_len, -1)
-                attn_output = self.o_proj(attn_output)
-                
-                return attn_output, self.attention_probs, past_key_value, records, reuse_tensor_index, compute_tensor_index
+            
+            attn_output = torch.matmul(last_self_attns[:value_states.shape[0], :, :, :], value_states)
+            attn_output = attn_output.transpose(1, 2).contiguous()
+            attn_output = attn_output.reshape(bsz, q_len, -1)
+            attn_output = self.o_proj(attn_output)
+            
+            return attn_output, self.attention_probs, past_key_value
 
 
         
@@ -1185,8 +1113,6 @@ class LlamaDecoderLayer(nn.Module):
         cache_position: Optional[torch.LongTensor] = None,
         position_embeddings: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,  # will become mandatory in v4.46
         last_self_attns: Optional[torch.Tensor] = None,
-        records: Optional[torch.Tensor] = None, 
-        reuse_tensor_index: Optional[torch.Tensor] = None,
         compute_tensor_index: Optional[torch.Tensor] = None,
         **kwargs,
     ) -> Tuple[torch.FloatTensor, Optional[Tuple[torch.FloatTensor, torch.FloatTensor]]]:
@@ -1222,7 +1148,9 @@ class LlamaDecoderLayer(nn.Module):
                     output_attentions,
                     use_cache,
                     cache_position,
-                    position_embeddings,  # will become mandatory in v4.46
+                    position_embeddings,  
+                    last_self_attns,
+                    compute_tensor_index,
                     **kwargs,
                 )
     
@@ -1231,7 +1159,7 @@ class LlamaDecoderLayer(nn.Module):
         hidden_states = self.input_layernorm(hidden_states)
 
         # Self Attention
-        hidden_states, self_attn_weights, present_key_value, records, reuse_tensor_index, compute_tensor_index = self.self_attn(
+        hidden_states, self_attn_weights, present_key_value = self.self_attn(
             hidden_states=hidden_states,
             attention_mask=attention_mask,
             position_ids=position_ids,
@@ -1241,8 +1169,6 @@ class LlamaDecoderLayer(nn.Module):
             cache_position=cache_position,
             position_embeddings=position_embeddings,
             last_self_attns = last_self_attns,
-            records = records, 
-            reuse_tensor_index = reuse_tensor_index,
             compute_tensor_index = compute_tensor_index,
             **kwargs,
         )
@@ -1262,8 +1188,7 @@ class LlamaDecoderLayer(nn.Module):
         if use_cache:
             outputs += (present_key_value,)
 
-        if self.config.is_attn_cache:
-            outputs += (records, reuse_tensor_index, compute_tensor_index, )
+    
 
         return outputs
     
@@ -1278,8 +1203,6 @@ class LlamaDecoderLayer(nn.Module):
         cache_position: Optional[torch.LongTensor] = None,
         position_embeddings: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,  # will become mandatory in v4.46
         last_self_attns: Optional[torch.Tensor] = None,
-        records: Optional[torch.Tensor] = None, 
-        reuse_tensor_index: Optional[torch.Tensor] = None,
         compute_tensor_index: Optional[torch.Tensor] = None,
         **kwargs,
     ) -> Tuple[torch.FloatTensor, Optional[Tuple[torch.FloatTensor, torch.FloatTensor]]]:
@@ -1311,7 +1234,7 @@ class LlamaDecoderLayer(nn.Module):
             hidden_states = self.input_layernorm(hidden_states)
 
             # Self Attention
-            hidden_states, self_attn_weights, present_key_value, records, reuse_tensor_index, compute_tensor_index = self.self_attn(
+            hidden_states, self_attn_weights, present_key_value = self.self_attn(
                 hidden_states=hidden_states,
                 attention_mask=attention_mask,
                 position_ids=position_ids,
@@ -1320,10 +1243,8 @@ class LlamaDecoderLayer(nn.Module):
                 use_cache=use_cache,
                 cache_position=cache_position,
                 position_embeddings=position_embeddings,
-                # last_self_attns = last_self_attns,
-                # records = records, 
-                # reuse_tensor_index = reuse_tensor_index,
-                # compute_tensor_index = compute_tensor_index,
+                last_self_attns = last_self_attns,
+                compute_tensor_index = compute_tensor_index,
                 **kwargs,
             )
             hidden_states = residual + hidden_states
@@ -1342,9 +1263,6 @@ class LlamaDecoderLayer(nn.Module):
         if use_cache:
             outputs += (present_key_value,)
 
-        if self.config.is_attn_cache:
-            outputs += (records, reuse_tensor_index, compute_tensor_index, )
-            outputs += (records, reuse_tensor_index, compute_tensor_index )
 
         return outputs
 
@@ -1524,29 +1442,10 @@ class LlamaModel(LlamaPreTrainedModel):
         cache_position: Optional[torch.LongTensor] = None,
     ) -> Union[Tuple, BaseModelOutputWithPast]:
         
-        if self.is_block_drop:
-            return self.block_drop_forward(
-                                input_ids,
-                                attention_mask,
-                                position_ids,
-                                past_key_values,
-                                inputs_embeds,
-                                use_cache,
-                                output_attentions,
-                                output_hidden_states,
-                                return_dict,
-                                cache_position
-                            )
-        
+
         output_hidden_states = (
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
         )
-        use_cache = use_cache if use_cache is not None else self.config.use_cache
-        if self.config.is_block_drop or self.config.is_attn_drop:
-            use_cache = False
-        else: 
-            use_cache = True
-
 
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
@@ -1604,22 +1503,58 @@ class LlamaModel(LlamaPreTrainedModel):
         all_self_attns = () if output_attentions else None
         next_decoder_cache = None
         last_self_attns = None
-        last_records = None
-        last_compute_tensor_index = None
-        last_reuse_tensor_index = None,
+        records, reuse_tensor_index = None, None
         
+        ############################################################### search engine  
+        
+        
+        if self.config.is_attn_cache:  # use attn_memo
+            
+            self.vecDB = VecDB()
+            epoch = self.config.training_epoch
+            self.data_dir = self.config.save_dir    
+            self.vecDB.load(f"{self.data_dir}/VectorDB/mlp_epoch_attn_mask-{epoch}_vectors.faiss") 
+            self.emb = Emb(f"{self.data_dir}/Embedding_models/mlp_model_attn_mask-epoch{epoch}.pth")
+
+            threshold = self.config.threshold
+            x = self.layers[0].input_layernorm(hidden_states)
+            feature_vector = self.emb.embed(x).cpu().detach().numpy()
+            sims, idx_list = self.vecDB.search(feature_vector)
+
+            reuse_tensor_index = np.flatnonzero(1 - sims >= threshold)
+            records = idx_list[reuse_tensor_index]
+            compute_tensor_index = np.flatnonzero(1-sims < threshold)
+            
+            batch_size = self.config.batch_size
+            seq_length = self.config.max_length
+            self.attention_probs = torch.empty((self.config.num_hidden_layers, batch_size, self.config.num_attention_heads, seq_length, seq_length))                             
+    
+            if len(reuse_tensor_index) != 0:
+                print(f"=========== hit {len(reuse_tensor_index)} APMs")
+                for layer_idx in range(self.config.num_hidden_layers):
+                    for idx, record in zip(reuse_tensor_index, records):
+                        with open(f"{self.data_dir}/APMsDB/{record[0]}.pickle", "rb") as file:
+                            attn_weights = pickle.load(file)
+                            self.attention_probs[layer_idx][idx] = torch.from_numpy(attn_weights)
+                    records += 1
+            else:
+                print(f"=========== no hit APMs")
+
+            self.attention_probs = self.attention_probs.to(hidden_states.device)
         ##############################################################
+
+        layer_idx = 0
+        block_drop_layer = [20, 21, 22, 23]
         
-        
-
-
-
-
-        ##############################################################
-
+            
 
         for decoder_layer in self.layers:
-        
+
+            ####################
+            if self.config.is_block_drop and layer_idx in block_drop_layer:
+                continue
+            ####################
+
             if output_hidden_states:
                 all_hidden_states += (hidden_states,)
 
@@ -1645,12 +1580,10 @@ class LlamaModel(LlamaPreTrainedModel):
                     use_cache=use_cache,
                     cache_position=cache_position,
                     position_embeddings=position_embeddings,
-                    last_self_attns=last_self_attns,
-                    records = last_records, 
-                    reuse_tensor_index = last_reuse_tensor_index,
-                    compute_tensor_index = last_compute_tensor_index,
+                    last_self_attns=self.attention_probs[layer_idx] if self.config.is_attn_cache else last_self_attns,
+                    compute_tensor_index = compute_tensor_index if self.config.is_attn_cache else None,
                 )
-
+            layer_idx += 1 
             hidden_states = layer_outputs[0]  
 
             if use_cache:
@@ -1659,11 +1592,6 @@ class LlamaModel(LlamaPreTrainedModel):
             if output_attentions:
                 last_self_attns = layer_outputs[1]
                 all_self_attns += (layer_outputs[1],)
-            
-            if self.config.is_attn_cache:
-                last_records = layer_outputs[3] 
-                last_reuse_tensor_index = layer_outputs[4]
-                last_compute_tensor_index = layer_outputs[5]
 
         hidden_states = self.norm(hidden_states)
 
@@ -1682,7 +1610,7 @@ class LlamaModel(LlamaPreTrainedModel):
             past_key_values=next_cache,
             hidden_states=all_hidden_states,
             attentions=all_self_attns,
-        ), last_records, last_reuse_tensor_index
+        ), records, reuse_tensor_index
 
     def block_drop_forward(
         self,

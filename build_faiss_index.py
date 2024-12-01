@@ -11,11 +11,20 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument('--epoch', type=int, default=2, help='Number of epoch over the dataset to train')
     parser.add_argument('--task_name', default="STS13", help="task_name")
+    parser.add_argument('--is_attn_cache', action='store_true', default=False)
+    parser.add_argument('--is_attn_memo', action='store_true', default=False)
     parser.add_argument('--dataset_dir', type=str, default="/home/sdh/MetaEOL/MetaEOL/database/Llama-3.2-3B-Instruct", help='dataset_dir')
     args = parser.parse_args()
     args.dataset_dir += "/" + args.task_name
-    embedding_model = f"{args.dataset_dir}/Embedding_models/mlp_model_attn_memo-epoch{args.epoch}.pth"
-    save_path =  f"{args.dataset_dir}/VectorDB/attn_memo_epoch-{args.epoch}_vectors.faiss"
+
+    # if args.is_attn_memo:
+    #     embedding_model = f"{args.dataset_dir}/Embedding_models/mlp_model_attn_memo-epoch{args.epoch}.pth"
+    #     save_path = f'{args.dataset_dir}/Embedding_models/mlp_model_attn_memo-epoch{args.epoch}.pth'
+    # elif args.is_attn_cache:
+    #     save_path = f'{args.dataset_dir}/Embedding_models/mlp_model_attn_cache-epoch{args.epoch}.pth'
+
+    embedding_model = f"{args.dataset_dir}/Embedding_models/mlp_model_attn_cache-epoch{args.epoch}.pth"
+    save_path =  f"{args.dataset_dir}/VectorDB/attn_cache_epoch-{args.epoch}_vectors.faiss"
     
     print("===========================")
     print("Args: ", args)
@@ -25,6 +34,8 @@ if __name__ == "__main__":
     
 
     emb = Emb(embedding_model)
+
+
     vecdb = VecDB()
 
     files_num = len(os.listdir(f"{args.dataset_dir}/HiddenStatesDB"))

@@ -15,6 +15,11 @@ cd SentEval/data/downstream/
 bash download_dataset.sh
 cd -
 ```
+## Preprocess
+
+### Collect Attention Maps and Hidden States
+
+### Train Feature Projector and Build Index DB
 
 ## Running Script
 ```
