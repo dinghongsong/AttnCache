@@ -571,8 +571,8 @@ class LlamaAttention(nn.Module):
         else:
             attn_output = self.o_proj(attn_output)
 
-        if not output_attentions:
-            attn_weights = None
+        # if not output_attentions:
+        #     attn_weights = None
 
         return attn_output, attn_weights, past_key_value
     def collect_hiddenstates_apms(
@@ -1940,10 +1940,10 @@ class LlamaForCausalLM(LlamaPreTrainedModel, GenerationMixin):
         ```"""
         # output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         # output_attentions = self.config.is_LazyFormer
-        # if self.config.is_block_drop or self.config.is_attn_drop:
-        #     output_attentions = False
-        # else: 
-        #     output_attentions = True
+        if self.config.is_block_drop or self.config.is_attn_drop:
+            output_attentions = False
+        else: 
+            output_attentions = True
         output_hidden_states = (
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
         )

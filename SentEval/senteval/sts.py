@@ -120,16 +120,19 @@ class STSEval(object):
 
     def test(self, params, batcher):
 
-        batch = [['work', 'into', 'it', 'slowly', '.']]
-        enc, attn, last_records, _ = batcher(params, batch)
-        result_matrix = calculate_js_matrix(attn)
-        print(result_matrix)
+        # # batch = [['work', 'into', 'it', 'slowly', '.']]
+        # enc, attn, last_records, _ = batcher(params, batch)
+        # result_matrix = calculate_js_matrix(attn)
+        # print(result_matrix)
+
+        # batch1 = [['three', 'no', 'votes', 'would', 'kill', 'it', 'for', 'now', '.']]
+        # batch2 = [['ross', 'garber', ',', 'rowland', "'s", 'lawyer', ',', 'said', 'tuesday', 'he', 'would', 'attend', 'the', 'meeting', 'and', 'would', 'ask', 'to', 'speak', 'on', 'the', 'issue', '.']]
 
         # batch1 = [['you', 'should', 'never', 'do', 'it', '.']]  #sentence1
         # batch2 = [['how', 'do', 'you', 'do', 'that', '?']]    #sentence2
 
-        # ================================= batch2: ['no', ',', 'it', 'makes', 'no', 'difference', '.']
-        # ================================= match2: ['i', 'was', 'in', 'a', 'similar', 'situation', '.']
+        batch1 = [['moore', 'did', 'not', 'have', 'an', 'immediate', 'response', 'tuesday', '.']]
+        batch2 = [['a', 'boy', 'is', 'playing', 'a', 'key-board', '.']]
         
         # batch1 = [['what', 'are', 'these', 'bugs', 'and', 'how', 'do', 'i', 'get', 'rid', 'of', 'them', '?']]#sentence3
         # batch2 = [['you', 'have', 'to', 'decide', 'what', 'you', 'want', 'to', 'get', 'out', 'of', 'this', '.']]#sentence4
@@ -140,10 +143,10 @@ class STSEval(object):
         # batch1 = [['how', 'do', 'i', 'patch', 'a', 'gap', 'between', 'my', 'bathtub', 'and', 'wall', '?']]
         # batch2 = [['what', 'goes', 'in', 'a', 'student', 'success', 'statement', 'for', 'a', 'faculty', 'application', '?']]
 
-        batch1 = [['how', 'can', 'i', 'add', 'a', 'new', 'light', 'fixture', 'off', 'of', 'a', 'ceiling', 'fan', 'wired', 'to', 'two', 'switches', '?']]
-        batch2 = [['the', 'order', 'in', 'which', 'the', 'terms', 'appear', 'in', 'the', 'document', 'is', 'lost', 'in', 'the', 'vector', 'space', 'representation', '.']]
-        enc1, attn1, last_records1 = batcher(params, batch1) 
-        enc2, attn2, last_records2 = batcher(params, batch2)
+        # batch1 = [['how', 'can', 'i', 'add', 'a', 'new', 'light', 'fixture', 'off', 'of', 'a', 'ceiling', 'fan', 'wired', 'to', 'two', 'switches', '?']]
+        # batch2 = [['the', 'order', 'in', 'which', 'the', 'terms', 'appear', 'in', 'the', 'document', 'is', 'lost', 'in', 'the', 'vector', 'space', 'representation', '.']]
+        enc1, attn1, last_records1,_ = batcher(params, batch1) 
+        enc2, attn2, last_records2,_ = batcher(params, batch2)
 
         # print(f"================================= batch1: {batch1[0]}")
         # print(f"================================= match1: {self.sent1[(last_records1[0][0] - 27) // 28]}")
@@ -153,19 +156,19 @@ class STSEval(object):
 
         dir = f"/home/sdh/MetaEOL/MetaEOL/figures"
         # head=20
-        size=28
+        size=32
 
         cmap = sns.color_palette("coolwarm", as_cmap=True)
         cmap.set_bad(color="gray") 
-        for layer in range(28):
-            dir1 = f"{dir}/sentence3/layer_{layer}"
-            if not os.path.exists(dir1):
-                os.makedirs(dir1)
+        # for layer in range(28):
+        #     dir1 = f"{dir}/sentence3/layer_{layer}"
+        #     if not os.path.exists(dir1):
+        #         os.makedirs(dir1)
         
-        for layer in range(28):
-            dir2 = f"{dir}/sentence4/layer_{layer}"
-            if not os.path.exists(dir2):
-                os.makedirs(dir2)
+        # for layer in range(28):
+        #     dir2 = f"{dir}/sentence4/layer_{layer}"
+        #     if not os.path.exists(dir2):
+        #         os.makedirs(dir2)
 
         for layer in range(28): # 28 layers
             apm0 = attn1[layer].numpy() # 24 heads 
@@ -179,7 +182,8 @@ class STSEval(object):
                 plt.xticks(ticks=np.arange(0, size, 2), labels=np.arange(0, size, 2))
                 plt.yticks(ticks=np.arange(0, size, 2), labels=np.arange(0, size, 2), rotation=360)
                 plt.show()
-                plt.savefig(f"{dir}/sentence3/layer_{layer}/Sentence_3_layer_{layer}_head_{head}.pdf", format="pdf", bbox_inches="tight")
+                # plt.savefig(f"{dir}/sentence3/layer_{layer}/Sentence_3_layer_{layer}_head_{head}.pdf", format="pdf", bbox_inches="tight")
+                plt.savefig(f"{dir}/Sentence_1_layer_{layer}_head_{head}.pdf", format="pdf", bbox_inches="tight")
                 plt.clf()
 
                 mask=np.triu(np.ones_like(apm1[0][head][-size:, -size:,], dtype=bool), k=1)
@@ -188,7 +192,8 @@ class STSEval(object):
                 plt.xticks(ticks=np.arange(0, size, 2), labels=np.arange(0, size, 2))
                 plt.yticks(ticks=np.arange(0, size, 2), labels=np.arange(0, size, 2), rotation=360)
                 plt.show()
-                plt.savefig(f"{dir}/sentence4/layer_{layer}/Sentence_4_layer_{layer}_head_{head}.pdf", format="pdf", bbox_inches="tight")
+                # plt.savefig(f"{dir}/sentence4/layer_{layer}/Sentence_4_layer_{layer}_head_{head}.pdf", format="pdf", bbox_inches="tight")
+                plt.savefig(f"{dir}/Sentence_2_layer_{layer}_head_{head}.pdf", format="pdf", bbox_inches="tight")
                 plt.clf()
 
 

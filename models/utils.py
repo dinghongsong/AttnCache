@@ -42,15 +42,15 @@ class LinearNet(nn.Module):
 class Emb():
     def __init__(self, model_dir) -> None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.emb = LinearNet().to_empty(device="cuda")#.to_empty('cpu')#.to(device)
-        self.emb.load_state_dict(torch.load(model_dir))
+        self.emb = LinearNet()#.to_empty(device=device)#.to_empty('cpu')#.to(device)
+        self.emb.load_state_dict(torch.load(model_dir, map_location=torch.device('cpu')))
         self.emb.eval()
     def embed(self, inputs):
         """
         return a numpy obj
         """
-        # return self.emb.forward_once(torch.from_numpy(inputs)).detach().numpy()
-        return self.emb.forward_once(inputs)
+        return self.emb.forward_once(torch.from_numpy(inputs)).detach().numpy()
+        # return self.emb.forward_once(inputs)
     
 class VecDB():
     def __init__(self, d=128, nlist=128, m=8, bit=8) -> None:

@@ -4,14 +4,14 @@ import os
 from tqdm import tqdm
 from models.utils import Emb, VecDB
 from argparse import ArgumentParser
-
+import torch
 
 if __name__ == "__main__":
 
     parser = ArgumentParser()
-    parser.add_argument('--epoch', type=int, default=1, help='Number of sweeps over the dataset to train')
+    parser.add_argument('--epoch', type=int, default=2, help='Number of epoch over the dataset to train')
     parser.add_argument('--task_name', default="STS13", help="task_name")
-    parser.add_argument('--dataset_dir', type=str, default="/home/sdh/MoE_Embedding/MoE-Embedding/database/Llama-3.2-3B-Instruct", help='dataset_dir')
+    parser.add_argument('--dataset_dir', type=str, default="/home/sdh/MetaEOL/MetaEOL/database/Llama-3.2-3B-Instruct", help='dataset_dir')
     args = parser.parse_args()
     args.dataset_dir += "/" + args.task_name
     embedding_model = f"{args.dataset_dir}/Embedding_models/mlp_model_attn_memo-epoch{args.epoch}.pth"

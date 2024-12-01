@@ -85,8 +85,8 @@ def main():
 
     args = parser.parse_args()
     args.save_dir += args.task_name
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    # device = torch.device("cpu")
+    # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cpu")
     token = "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"
     if args.tensor_parallel:
         import tensor_parallel as tp
@@ -142,12 +142,11 @@ def main():
     tokenizer.pad_token_id = 0  # Set the padding token. we want this to be different from the eos token
     tokenizer.padding_side = "left"  # Allow batched inference
 
-    # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     # Set up the tasks
     if args.task_set == 'sts':
-        # args.tasks = ['STS12', 'STS13', 'STS14', 'STS15', 'STS16', 'STSBenchmark', 'SICKRelatedness']
-        args.tasks = ['STS12']
+        # args.tasks = ['STS12', 'STS13', 'STS14', 'STS15',  'STSBenchmark', 'SICKRelatedness', 'STS16']
+        args.tasks = [f'{args.task_name}']
         if args.mode == 'dev':
             args.tasks = ['STSBenchmark-dev']
     elif args.task_set == 'transfer':
@@ -242,6 +241,7 @@ def main():
     results = {}
 
     for task in args.tasks:
+        print(f"================= start eval task {task} ===============================================================")
         se = senteval.engine.SE(params, batcher, prepare)
         result = se.eval(task, config.collect_hiddenstates_apms)
         results[task] = result
