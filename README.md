@@ -1,5 +1,5 @@
 # Code Implementation for AttnCache
-## Conda Env
+## Conda Environment
 
 ```
 conda env create -f environment.yml
