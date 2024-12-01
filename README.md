@@ -15,7 +15,17 @@ bash download_dataset.sh
 ```
 ## Preprocess
 
-### Collect Attention Maps and Hidden States
+### Collect Hidden States and Attention Maps 
+
+```
+python evaluation.py \
+        --model_name_or_path meta-llama/Llama-3.2-3B-Instruct \
+        --task_set sts \
+        --task_name STS13 \
+        --collect_hiddenstates_apms \
+        --batch_size 1 \
+        --save_dir /home/sdh/AttnCache/AttnCache/database/Llama-3.2-3B-Instruct/
+```
 
 ### Train Feature Projector and Build Index DB
 
