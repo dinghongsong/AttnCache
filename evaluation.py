@@ -77,18 +77,20 @@ def main():
     parser.add_argument('--is_attn_cache', action='store_true')
     parser.add_argument('--task_name', type=str, default="STS13")
     parser.add_argument('--collect_hiddenstates_apms', action='store_true')
-    parser.add_argument('--save_dir', default="/home/sdh/MetaEOL/MetaEOL/database/Llama-3.2-3B-Instruct/", type=str)
+    parser.add_argument('--save_dir', default="/home/sdh/MetaEOL/MetaEOL/database/", type=str)
     parser.add_argument('--threshold', type=float, default=0.9999, help='The threshold to decide whether to use attn replacement.')
     parser.add_argument('--training_epoch', type=int, default=2,  help='The epoch of training embedding model and generating vector DB')
     parser.add_argument('--replace_layer', type=int, default=4,  help='The layer that is not replaced by attn memo from 0 ~ replace_layer')
     parser.add_argument('--batch_size', type=int, default=128,  help='batch_size')
-    parser.add_argument('--max_length', type=int, default=128,  help='max_length') 
+    parser.add_argument('--max_length', type=int, default=128,  help='max_length')
+    parser.add_argument('--device', type=str, default=torch.device("cuda:0" if torch.cuda.is_available() else "cpu"),  help='device')
 
     args = parser.parse_args()
-    args.save_dir += args.task_name
-    # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    device = torch.device("cpu")
-    token = "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"
+    args.save_dir += "/" + args.task_name
+    device = args.device
+    
+    # token = "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"  #meta-llama/Llama-3.2-3B-Instruct
+    token = "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" #meta-llama/Llama-3.1-8B
     if args.tensor_parallel:
         import tensor_parallel as tp
         n_gpus = len(os.environ['CUDA_VISIBLE_DEVICES'].split(','))
@@ -97,7 +99,7 @@ def main():
         model = tp.tensor_parallel(model, [i for i in range(n_gpus)])
     else:
         # configuration
-        config = LlamaConfig.from_pretrained('meta-llama/Llama-3.2-3B-Instruct')
+        config = LlamaConfig.from_pretrained(args.model_name_or_path, token=token)
         config.is_attn_memo=args.is_attn_memo
         config.collect_hiddenstates_apms=args.collect_hiddenstates_apms
         config.is_LazyFormer=args.is_LazyFormer
@@ -112,11 +114,12 @@ def main():
         config.batch_size=args.batch_size
         config.max_length=args.max_length
 
-        # nf4_config = BitsAndBytesConfig(
-        #     load_in_8bit=True
-        # )
+        nf4_config = BitsAndBytesConfig(
+            load_in_8bit=True
+        )
         
         model = LlamaForCausalLM.from_pretrained(args.model_name_or_path, token=token, config=config,
+                                                #  quantization_config=nf4_config,
                                                     #  quantization_config=QuantoConfig(weights="float8"),
                                                      ).to(device)
 

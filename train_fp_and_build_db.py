@@ -9,9 +9,9 @@ from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 from itertools import combinations
 import torch
-from models.utils import LinearNet, HiddenStatesAPMsDataset, VecDB
+from models.utils import LinearNet, HiddenStatesAPMsDataset, VecDB, Emb
 import os
-import tqdm
+from tqdm import tqdm
 import pickle
 
 def create_pairs(inputs, args):
@@ -105,7 +105,7 @@ if __name__ == "__main__" :
     parser.add_argument('--task_name', default="STS16", help="Comma separated. Default is None i.e. running all tasks")
     parser.add_argument('--is_attn_cache', action='store_true', default=False)
     parser.add_argument('--is_attn_memo', action='store_true', default=False)
-    parser.add_argument('--save_dir', type=str, default="/home/sdh/AttnCache/AttnCache/database/Llama-3.2-3B-Instruct/", help='save_dir')
+    parser.add_argument('--save_dir', type=str, default="/home/sdh/AttnCache/AttnCache/database/Llama-3.2-3B-Instruct", help='save_dir')
 
     args = parser.parse_args()
     args.save_dir += "/" + args.task_name
@@ -122,8 +122,12 @@ if __name__ == "__main__" :
     print("===========================")
     print("Args: ", args)
     print("===========================")
-
-    model = train_feature_projector(args)
+    
+    if os.path.exists(args.model_save_path):
+        model = Emb(args.model_save_path)
+    else:
+        train_feature_projector(args)
+        model = Emb(args.model_save_path)
     build_index_database(model, args)
  
 

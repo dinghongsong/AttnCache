@@ -471,19 +471,6 @@ class LlamaAttention(nn.Module):
             self.vecDB.load(f"{self.data_dir}/VectorDB/attn_memo_epoch-{epoch}_vectors.faiss") 
             self.emb = Emb(f"{self.data_dir}/Embedding_models/mlp_model_attn_memo-epoch{epoch}.pth")
 
-        # elif self.config.is_attn_cache:
-        #     self.vecDB = VecDB()
-        #     epoch = self.config.training_epoch
-        #     self.vecDB.load(f"{self.data_dir}/VectorDB/attn_cache_epoch-{epoch}_vectors.faiss") 
-        #     self.emb = Emb(f"{self.data_dir}/Embedding_models/mlp_model_attn_cache-epoch{epoch}.pth")
-            # print(self.emb.emb)
-            # # for name, param in self.emb.emb.named_parameters():
-            # #     param.data = param.data.to_empty(device="cpu")#to("cuda")
-            # self.emb.emb.to_empty(device="cuda")
-            # print(next(self.emb.emb.parameters()).device)
-            # self.vecDB.load(f"{self.data_dir}/VectorDB/mlp_epoch{epoch}_vectors.faiss") 
-            # self.emb = Emb(f"{self.data_dir}/Embedding_models/mlp_model-epoch{epoch}.pth")
-      
     def llama_forward(
         self,
         hidden_states: torch.Tensor,
@@ -772,7 +759,7 @@ class LlamaAttention(nn.Module):
             
             threshold = self.config.threshold
             # feature_vector = self.emb.embed(hidden_states.cpu().detach().numpy())
-            feature_vector = self.emb.embed(hidden_states.detach().numpy())
+            feature_vector = self.emb.embed(hidden_states.cpu().detach().numpy())
             sims, idx_list = self.vecDB.search(feature_vector)
 
             reuse_tensor_index = np.flatnonzero(1 - sims >= threshold)
@@ -1519,7 +1506,7 @@ class LlamaModel(LlamaPreTrainedModel):
            
             threshold = self.config.threshold
             x = self.layers[0].input_layernorm(hidden_states)
-            feature_vector = self.emb.embed(x.detach().numpy())
+            feature_vector = self.emb.embed(x.cpu().detach().numpy())
             sims, idx_list = self.vecDB.search(feature_vector)
 
             reuse_tensor_index = np.flatnonzero(1 - sims >= threshold)
