@@ -13,6 +13,7 @@ from models.utils import LinearNet, HiddenStatesAPMsDataset, VecDB, Emb
 import os
 from tqdm import tqdm
 import pickle
+from datetime import datetime
 
 def create_pairs(inputs, args):
     x0_data = []
@@ -36,8 +37,8 @@ def create_pairs(inputs, args):
         if args.is_attn_memo:
             label = np.sum(apm_diff, axis=tuple(range(1, apm_diff.ndim))) / seq_len  / num_head / 2
         elif args.is_attn_cache:
-            label = np.sum(apm_diff, axis=tuple(range(1, apm_diff.ndim))) / seq_len  / num_head / 2 + 0.8 * np.abs(length0 - length1) # np.sum(attn_mask_diff, axis=tuple(range(1, apm_diff.ndim))) / seq_len
-        print("label: ", label)
+            label = np.sum(apm_diff, axis=tuple(range(1, apm_diff.ndim))) / seq_len  / num_head / 2 + np.abs(length0 - length1) # np.sum(attn_mask_diff, axis=tuple(range(1, apm_diff.ndim))) / seq_len
+        # print("label: ", label)
         x0_data.append(x0)
         x1_data.append(x1)
         labels.append(label)
@@ -75,6 +76,7 @@ def train_feature_projector(args):
 
             if batch_idx % 50 == 0:
                 print("Loss: {}, batch:{}, Epoch:{}, Time/batch = {}".format(loss.item(), batch_idx, epoch, time.time()-start))
+                torch.save(model.state_dict(), args.model_save_path)
       
     torch.save(model.state_dict(), args.model_save_path)
     print(f"Save Feature Projector to {args.model_save_path}")
@@ -100,15 +102,16 @@ def build_index_database(model, args):
 if __name__ == "__main__" :
     torch.manual_seed(1)
     parser = argparse.ArgumentParser()
+    parser.add_argument('--model_name_or_path', type=str,help="Transformers' model name or path", default="meta-llama/Llama-3.2-3B-Instruct")
     parser.add_argument('--epoch', '-e', type=int, default=2, help='Number of epoch to train')
     parser.add_argument('--batchsize', '-b', type=int, default=64, help='Number of images in each mini-batch')
-    parser.add_argument('--task_name', default="STS16", help="Comma separated. Default is None i.e. running all tasks")
+    parser.add_argument('--task_name', default="STS12", help="Comma separated. Default is None i.e. running all tasks")
     parser.add_argument('--is_attn_cache', action='store_true', default=False)
     parser.add_argument('--is_attn_memo', action='store_true', default=False)
     parser.add_argument('--save_dir', type=str, default="/home/sdh/AttnCache/AttnCache/database/Llama-3.2-3B-Instruct", help='save_dir')
 
     args = parser.parse_args()
-    args.save_dir += "/" + args.task_name
+    args.save_dir += args.model_name_or_path + "/" + args.task_name
     args.device = "cuda" if torch.cuda.is_available() else "cpu"
 
     if args.is_attn_memo:
@@ -129,6 +132,9 @@ if __name__ == "__main__" :
         train_feature_projector(args)
         model = Emb(args.model_save_path)
     build_index_database(model, args)
+    current_time = datetime.now()
+
+    print("current time: ", current_time)
  
 
     

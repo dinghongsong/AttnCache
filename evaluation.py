@@ -17,7 +17,8 @@ from models.configuration_llama import LlamaConfig
 
 # Set up logger
 logging.basicConfig(format='%(asctime)s : %(message)s', level=logging.DEBUG)
-
+import os
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 # Set PATHs
 PATH_TO_SENTEVAL = './SentEval'
 PATH_TO_DATA = './SentEval/data'
@@ -86,7 +87,7 @@ def main():
     parser.add_argument('--device', type=str, default=torch.device("cuda:0" if torch.cuda.is_available() else "cpu"),  help='device')
 
     args = parser.parse_args()
-    args.save_dir += "/" + args.task_name
+    args.save_dir += args.model_name_or_path + "/" + args.task_name
     device = args.device
     
     # token = "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"  #meta-llama/Llama-3.2-3B-Instruct
@@ -114,16 +115,16 @@ def main():
         config.batch_size=args.batch_size
         config.max_length=args.max_length
 
-        nf4_config = BitsAndBytesConfig(
-            load_in_8bit=True
-        )
+        # nf4_config = BitsAndBytesConfig(
+        #     load_in_8bit=True
+        # )
         
         model = LlamaForCausalLM.from_pretrained(args.model_name_or_path, token=token, config=config,
                                                 #  quantization_config=nf4_config,
-                                                    #  quantization_config=QuantoConfig(weights="float8"),
+                                                     quantization_config=QuantoConfig(weights="int8"), #23981M int/float 8  21123M for int4 19443M：int2
                                                      ).to(device)
 
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, token=token)
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path)
     tokenizer.pad_token_id = 0  # Set the padding token. we want this to be different from the eos token
     tokenizer.padding_side = "left"  # Allow batched inference
 
