@@ -43,7 +43,7 @@ class LinearNet(nn.Module):
 class Emb():
     def __init__(self, model_dir) -> None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.emb = LinearNet()#.to_empty(device=device)#.to_empty('cpu')#.to(device)
+        self.emb = LinearNet().to_empty(device='cpu')#.to_empty('cpu')#.to(device)
         self.emb.load_state_dict(torch.load(model_dir, map_location=torch.device('cpu')))
         self.emb.eval()
     def embed(self, inputs):

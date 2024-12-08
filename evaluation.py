@@ -87,11 +87,12 @@ def main():
     parser.add_argument('--device', type=str, default=torch.device("cuda:0" if torch.cuda.is_available() else "cpu"),  help='device')
 
     args = parser.parse_args()
-    args.save_dir += args.model_name_or_path + "/" + args.task_name
+    
     device = args.device
     
     # token = "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"  #meta-llama/Llama-3.2-3B-Instruct
-    token = "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" #meta-llama/Llama-3.1-8B
+    # token = "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" #meta-llama/Llama-3.1-8B
+    token = "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" # mistralai/Mistral-7B-v0.1
     if args.tensor_parallel:
         import tensor_parallel as tp
         n_gpus = len(os.environ['CUDA_VISIBLE_DEVICES'].split(','))
@@ -119,24 +120,26 @@ def main():
         #     load_in_8bit=True
         # )
         
-        model = LlamaForCausalLM.from_pretrained(args.model_name_or_path, token=token, config=config,
-                                                #  quantization_config=nf4_config,
-                                                     quantization_config=QuantoConfig(weights="int8"), #23981M int/float 8  21123M for int4 19443M：int2
-                                                     ).to(device)
+        # model = LlamaForCausalLM.from_pretrained(args.model_name_or_path, token=token, config=config,
+        #                                         #  quantization_config=nf4_config,
+        #                                              quantization_config=QuantoConfig(weights="int8"), #23981M int/float 8  21123M for int4 19443M：int2
+        #                                              ).to(device)
 
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path)
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, token=token)
     tokenizer.pad_token_id = 0  # Set the padding token. we want this to be different from the eos token
     tokenizer.padding_side = "left"  # Allow batched inference
 
 
     # Set up the tasks
     if args.task_set == 'sts':
-        # args.tasks = ['STS12', 'STS13', 'STS14', 'STS15',  'STSBenchmark', 'SICKRelatedness', 'STS16']
-        args.tasks = [f'{args.task_name}']
+        args.tasks = ['STS12', 'STS13', 'STS14', 'STS15', 'STS16', 'STSBenchmark', 'SICKRelatedness']
+        # args.tasks = ['SICKRelatedness']
+        # args.tasks = [f'{args.task_name}']
         if args.mode == 'dev':
             args.tasks = ['STSBenchmark-dev']
     elif args.task_set == 'transfer':
-        args.tasks = ['MR', 'CR', 'MPQA', 'SUBJ', 'SST2', 'TREC', 'MRPC']
+        # args.tasks = ['MR', 'CR', 'MPQA', 'SUBJ', 'SST2', 'TREC', 'MRPC']
+        args.tasks = ['SST2']
     elif args.task_set == 'full':
         args.tasks = ['STS12', 'STS13', 'STS14', 'STS15', 'STS16', 'STSBenchmark', 'SICKRelatedness']
         args.tasks += ['MR', 'CR', 'MPQA', 'SUBJ', 'SST2', 'TREC', 'MRPC']
@@ -231,10 +234,23 @@ def main():
     print("===========================")
     
     for task in args.tasks:
-        print(f"================= start eval task {task} ===============================================================")
-        se = senteval.engine.SE(params, batcher, prepare)
-        result = se.eval(task, config.collect_hiddenstates_apms)
-        results[task] = result
+        if args.collect_hiddenstates_apms:
+            print(f"================= Collect {task} ams and hs  ===============================================================")
+            args.save_dir += args.model_name_or_path + "/" + task
+            config.save_dir = args.save_dir
+            model = LlamaForCausalLM.from_pretrained(args.model_name_or_path, token=token, config=config,
+                                                     quantization_config=QuantoConfig(weights="int8"), #23981M int/float 8  21123M for int4 19443M：int2
+                                                     ).to(device)
+            
+            se = senteval.engine.SE(params, batcher, prepare)
+            result = se.eval(task, config.collect_hiddenstates_apms)
+            results[task] = result
+        else:
+            print(f"================= start eval task {task} ===============================================================")
+            args.save_dir += args.model_name_or_path + "/" + args.task_name
+            se = senteval.engine.SE(params, batcher, prepare)
+            result = se.eval(task, config.collect_hiddenstates_apms)
+            results[task] = result
 
     # Print evaluation results
     if args.mode == 'dev':

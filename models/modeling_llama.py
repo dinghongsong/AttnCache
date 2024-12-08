@@ -1499,6 +1499,7 @@ class LlamaModel(LlamaPreTrainedModel):
             
             self.vecDB = VecDB()
             epoch = self.config.training_epoch
+            # epoch = 3
             self.data_dir = self.config.save_dir    
             self.vecDB.load(f"{self.data_dir}/VectorDB/attn_cache_epoch-{epoch}_vectors.faiss") 
             self.emb = Emb(f"{self.data_dir}/Embedding_models/mlp_model_attn_cache-epoch{epoch}.pth")
@@ -1516,7 +1517,12 @@ class LlamaModel(LlamaPreTrainedModel):
             batch_size = self.config.batch_size
             seq_length = self.config.max_length
             self.attention_probs = torch.empty((self.config.num_hidden_layers, batch_size, self.config.num_attention_heads, seq_length, seq_length))                             
-    
+            print("==========================")
+            if records.size:
+                print("idx: ", records[0] / 32)
+            else:
+                print("idx: None")
+            print("==========================")
             if len(reuse_tensor_index) != 0:
                 print(f"=========== hit {len(reuse_tensor_index)} APMs")
                 for layer_idx in range(self.config.num_hidden_layers):
@@ -1825,7 +1831,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel, GenerationMixin):
         self.model = LlamaModel(config)
         self.vocab_size = config.vocab_size
         self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
-
+        self.config = config
         # Initialize weights and apply final processing
         self.post_init()
 

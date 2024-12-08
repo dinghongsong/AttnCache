@@ -302,14 +302,14 @@ class STSEval(object):
                 enc1, attn1, last_records1, _ = batcher(params, batch1)
                 print(f"================================= batch1: {batch1[0]}")
                 if last_records1 is not None and len(last_records1) != 0:
-                    print(f"================================= match1: {self.sent1[(last_records1[0][0] - 27) // 28]}")
+                    print(f"================================= match1: {self.sent1[(last_records1[0][0] - 31) // 32]}")
                 else:
                     print(f"================================= no match1")
                 
                 enc2, attn2, last_records2, _ = batcher(params, batch2)
                 print(f"================================= batch2: {batch2[0]}")
                 if last_records2 is not None and len(last_records2) != 0:
-                    print(f"================================= match2: {self.sent1[(last_records2[0][0] - 27) // 28]}")
+                    print(f"================================= match2: {self.sent1[(last_records2[0][0] - 31) // 32]}")
                 else:
                     print(f"================================= no match2")
 
@@ -357,10 +357,7 @@ class STSEval(object):
     
 
     def collect_apms_hs(self, params, batcher):
-        # sample_num = len(self.sent1)
-        sample_num = 1000
-        # random_sample = random.sample(self.samples, sample_num)
-        # print(random_sample)  
+        sample_num = 1000  
         for ii in range(0, sample_num):
             batch = [self.sent1[ii]]
             embedding = batcher(params, batch)
@@ -439,6 +436,13 @@ class STSBenchmarkEval(STSEval):
         sick_data['y'] = [float(s) for s in sick_data['y']]
         self.samples += sick_data['X_A'] + sick_data["X_B"]
         return (sick_data['X_A'], sick_data["X_B"], sick_data['y'])
+    
+    def collect_apms_hs(self, params, batcher):
+        sample_num = 1000
+        for ii in range(0, sample_num):
+            batch = [self.data['test'][0][ii]]
+            embedding = batcher(params, batch)
+        logging.debug('Collect %.2f Hidden_states Att Masks and APMs Success!' % (sample_num))
 
 class STSBenchmarkEvalDev(STSEval):
     def __init__(self, task_path, seed=1111):
@@ -518,3 +522,10 @@ class SICKRelatednessEval(STSEval):
         sick_data['y'] = [float(s) for s in sick_data['y']]
         self.samples += sick_data['X_A'] + sick_data["X_B"]
         return (sick_data['X_A'], sick_data["X_B"], sick_data['y'])
+    
+    def collect_apms_hs(self, params, batcher):
+        sample_num = 1000
+        for ii in range(0, sample_num):
+            batch = [self.data['test'][0][ii]]
+            embedding = batcher(params, batch)
+        logging.debug('Collect %.2f Hidden_states Att Masks and APMs Success!' % (sample_num))

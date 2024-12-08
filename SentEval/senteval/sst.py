@@ -61,16 +61,17 @@ class SSTEval(object):
         for key in self.sst_data:
             logging.info('Computing embedding for {0}'.format(key))
             # Sort to reduce padding
-            sorted_data = sorted(zip(self.sst_data[key]['X'],
-                                     self.sst_data[key]['y']),
-                                 key=lambda z: (len(z[0]), z[1]))
-            self.sst_data[key]['X'], self.sst_data[key]['y'] = map(list, zip(*sorted_data))
+            # sorted_data = sorted(zip(self.sst_data[key]['X'],
+            #                          self.sst_data[key]['y']),
+            #                      key=lambda z: (len(z[0]), z[1]))
+            # self.sst_data[key]['X'], self.sst_data[key]['y'] = map(list, zip(*sorted_data))
+            # self.sst_data[key]['X'], self.sst_data[key]['y'] = self.sst_data[key]['X'][:1000], self.sst_data[key]['y'][:1000]
 
             sst_embed[key]['X'] = []
             for ii in range(0, len(self.sst_data[key]['y']), bsize):
                 batch = self.sst_data[key]['X'][ii:ii + bsize]
                 embeddings = batcher(params, batch)
-                sst_embed[key]['X'].append(embeddings)
+                sst_embed[key]['X'].append(embeddings[0])
             sst_embed[key]['X'] = np.vstack(sst_embed[key]['X'])
             sst_embed[key]['y'] = np.array(self.sst_data[key]['y'])
             logging.info('Computed {0} embeddings'.format(key))
