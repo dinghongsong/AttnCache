@@ -204,10 +204,7 @@ def main():
             max_length=max_length,
             truncation=max_length is not None
         )
-        # print(batch['input_ids'][0])
-        # tokens = tokenizer.convert_ids_to_tokens(batch['input_ids'][0])
-        # print("Tokens:", tokens)
-        # print(batch['attention_mask'][0])
+
 
         # Move to the correct device
         for k in batch:
@@ -236,6 +233,9 @@ def main():
     for task in args.tasks:
         if args.collect_hiddenstates_apms:
             print(f"================= Collect {task} ams and hs  ===============================================================")
+        else:
+            print(f"================= Start eval task {task} ===============================================================")
+
             args.save_dir += args.model_name_or_path + "/" + task
             config.save_dir = args.save_dir
             model = LlamaForCausalLM.from_pretrained(args.model_name_or_path, token=token, config=config,
@@ -245,12 +245,7 @@ def main():
             se = senteval.engine.SE(params, batcher, prepare)
             result = se.eval(task, config.collect_hiddenstates_apms)
             results[task] = result
-        else:
-            print(f"================= start eval task {task} ===============================================================")
-            args.save_dir += args.model_name_or_path + "/" + args.task_name
-            se = senteval.engine.SE(params, batcher, prepare)
-            result = se.eval(task, config.collect_hiddenstates_apms)
-            results[task] = result
+ 
 
     # Print evaluation results
     if args.mode == 'dev':

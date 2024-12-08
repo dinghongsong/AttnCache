@@ -300,18 +300,28 @@ class STSEval(object):
             # we assume get_batch already throws out the faulty ones
             if len(batch1) == len(batch2) and len(batch1) > 0:
                 enc1, attn1, last_records1, _ = batcher(params, batch1)
+                enc2, attn2, last_records2, _ = batcher(params, batch2)
+
                 print(f"================================= batch1: {batch1[0]}")
                 if last_records1 is not None and len(last_records1) != 0:
-                    print(f"================================= match1: {self.sent1[(last_records1[0][0] - 31) // 32]}")
+                    if params['current_task'] =='STSBenchmark' or params['current_task'] =="SICKRelatedness":
+                        print(f"================================= match1: {self.data['test'][0][(last_records1[0][0] - 31) // 32]}")
+                    else:
+                        print(f"================================= match1: {self.sent1[(last_records1[0][0] - 31) // 32]}")
                 else:
                     print(f"================================= no match1")
-                
-                enc2, attn2, last_records2, _ = batcher(params, batch2)
+
+
                 print(f"================================= batch2: {batch2[0]}")
                 if last_records2 is not None and len(last_records2) != 0:
-                    print(f"================================= match2: {self.sent1[(last_records2[0][0] - 31) // 32]}")
+                    if params['current_task'] =='STSBenchmark' or params['current_task'] =="SICKRelatedness":
+                        print(f"================================= match2: {self.data['test'][0][(last_records2[0][0] -31) // 32]}")
+                    else:
+                        print(f"================================= match2: {self.sent1[(last_records2[0][0] - 31) // 32]}")
+                    
                 else:
                     print(f"================================= no match2")
+
 
                 for kk in range(enc2.shape[0]):
                     sys_score = self.similarity(enc1[kk], enc2[kk])
@@ -319,23 +329,7 @@ class STSEval(object):
                 print(f"================================= y^hat: {sys_score} y: {gs_scores[ii]}")
         all_sys_scores.extend(sys_scores)
         all_gs_scores.extend(gs_scores[:test_sample_num])
-        # results[dataset] = {'pearson': pearsonr(sys_scores, gs_scores),
-        #                     'spearman': spearmanr(sys_scores, gs_scores),
-        #                     'nsamples': len(sys_scores)}
-        # logging.debug('%s : pearson = %.4f, spearman = %.4f' %
-        #                 (dataset, results[dataset]['pearson'][0],
-        #                 results[dataset]['spearman'][0]))
 
-        # weights = [results[dset]['nsamples'] for dset in results.keys()]
-        # list_prs = np.array([results[dset]['pearson'][0] for
-        #                     dset in results.keys()])
-        # list_spr = np.array([results[dset]['spearman'][0] for
-        #                     dset in results.keys()])
-
-        # avg_pearson = np.average(list_prs)
-        # avg_spearman = np.average(list_spr)
-        # wavg_pearson = np.average(list_prs, weights=weights)
-        # wavg_spearman = np.average(list_spr, weights=weights)
         all_pearson = pearsonr(all_sys_scores, all_gs_scores)
         all_spearman = spearmanr(all_sys_scores, all_gs_scores)
         results['all'] = {'pearson': {'all': all_pearson[0],
@@ -348,10 +342,7 @@ class STSEval(object):
                                        }}
         logging.debug('ALL : Pearson = %.4f, \
             Spearman = %.4f' % (all_pearson[0], all_spearman[0]))
-        # logging.debug('ALL (weighted average) : Pearson = %.4f, \
-        #     Spearman = %.4f' % (wavg_pearson, wavg_spearman))
-        # logging.debug('ALL (average) : Pearson = %.4f, \
-        #     Spearman = %.4f\n' % (avg_pearson, avg_spearman))
+
 
         return results
     
@@ -529,3 +520,5 @@ class SICKRelatednessEval(STSEval):
             batch = [self.data['test'][0][ii]]
             embedding = batcher(params, batch)
         logging.debug('Collect %.2f Hidden_states Att Masks and APMs Success!' % (sample_num))
+
+   
