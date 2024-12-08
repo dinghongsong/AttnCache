@@ -236,16 +236,15 @@ def main():
         else:
             print(f"================= Start eval task {task} ===============================================================")
 
-            args.save_dir += args.model_name_or_path + "/" + task
-            config.save_dir = args.save_dir
-            model = LlamaForCausalLM.from_pretrained(args.model_name_or_path, token=token, config=config,
-                                                     quantization_config=QuantoConfig(weights="int8"), #23981M int/float 8  21123M for int4 19443M：int2
-                                                     ).to(device)
-            
-            se = senteval.engine.SE(params, batcher, prepare)
-            result = se.eval(task, config.collect_hiddenstates_apms)
-            results[task] = result
- 
+        config.save_dir = args.save_dir + args.model_name_or_path + "/" + task
+        model = LlamaForCausalLM.from_pretrained(args.model_name_or_path, token=token, config=config,
+                                                    quantization_config=QuantoConfig(weights="int8"), #23981M int/float 8  21123M for int4 19443M：int2
+                                                    ).to(device)
+        
+        se = senteval.engine.SE(params, batcher, prepare)
+        result = se.eval(task, config.collect_hiddenstates_apms)
+        results[task] = result
+
 
     # Print evaluation results
     if args.mode == 'dev':
