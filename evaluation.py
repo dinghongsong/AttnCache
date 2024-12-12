@@ -78,6 +78,7 @@ def main():
     parser.add_argument('--is_attn_cache', action='store_true')
     parser.add_argument('--task_name', type=str, default="STS13")
     parser.add_argument('--collect_hiddenstates_apms', action='store_true')
+    parser.add_argument('--all_samples', action='store_true')
     parser.add_argument('--save_dir', default="/home/sdh/MetaEOL/MetaEOL/database/", type=str)
     parser.add_argument('--threshold', type=float, default=0.9999, help='The threshold to decide whether to use attn replacement.')
     parser.add_argument('--training_epoch', type=int, default=2,  help='The epoch of training embedding model and generating vector DB')
@@ -88,11 +89,20 @@ def main():
 
     args = parser.parse_args()
     
-    device = args.device
-    
+    # device = args.device
+    device = torch.device("cpu")
     # token = "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"  #meta-llama/Llama-3.2-3B-Instruct
     # token = "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" #meta-llama/Llama-3.1-8B
-    token = "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" # mistralai/Mistral-7B-v0.1
+    # token = "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" # mistralai/Mistral-7B-v0.1
+    if args.model_name_or_path == "meta-llama/Llama-3.1-8B":
+        token = "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" #meta-llama/Llama-3.1-8B
+    elif args.model_name_or_path == "meta-llama/Llama-3.2-3B":
+        token = "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"
+    elif args.model_name_or_path == "meta-llama/Llama-2-7b-hf":
+        token = "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"
+    elif args.model_name_or_path == "mistralai/Mistral-7B-v0.1":
+        token = "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" # mistralai/Mistral-7B-v0.1
+        
     if args.tensor_parallel:
         import tensor_parallel as tp
         n_gpus = len(os.environ['CUDA_VISIBLE_DEVICES'].split(','))
@@ -134,6 +144,7 @@ def main():
     if args.task_set == 'sts':
         args.tasks = ['STS12', 'STS13', 'STS14', 'STS15', 'STS16', 'STSBenchmark', 'SICKRelatedness']
         # args.tasks = ['SICKRelatedness']
+        # args.tasks = ['STS14']
         # args.tasks = [f'{args.task_name}']
         if args.mode == 'dev':
             args.tasks = ['STSBenchmark-dev']
@@ -212,7 +223,10 @@ def main():
 
         # Get raw embeddings
         with torch.no_grad():
+            start_t = time.time()
             outputs, last_records, last_reuse_tensor_index =  model(output_hidden_states=True, return_dict=True, **batch)
+            end_t = time.time()
+            print("time: ", (end_t - start_t) * 1000)
             attentions = outputs.attentions
             hidden_states = outputs.hidden_states
             outputs = hidden_states[-1][:, -1, :]
@@ -242,7 +256,7 @@ def main():
                                                     ).to(device)
         
         se = senteval.engine.SE(params, batcher, prepare)
-        result = se.eval(task, config.collect_hiddenstates_apms)
+        result = se.eval(task, config.collect_hiddenstates_apms, args.all_samples)
         results[task] = result
 
 
@@ -264,6 +278,7 @@ def main():
         scores = []
         for task in ['MR', 'CR', 'SUBJ', 'MPQA', 'SST2', 'TREC', 'MRPC']:
             task_names.append(task)
+
             if task in results:
                 scores.append("%.2f" % (results[task]['devacc']))    
             else:
@@ -281,10 +296,14 @@ def main():
         for task in ['STS12', 'STS13', 'STS14', 'STS15', 'STS16', 'STSBenchmark', 'SICKRelatedness']:
             task_names.append(task)
             if task in results:
-                if task in ['STS12', 'STS13', 'STS14', 'STS15', 'STS16']:
-                    scores.append("%.2f" % (results[task]['all']['spearman']['all'] * 100))
+                if args.all_samples:
+                    if task in ['STS12', 'STS13', 'STS14', 'STS15', 'STS16']:
+                        scores.append("%.2f" % (results[task]['all']['spearman']['all'] * 100))
+                    else:
+                        scores.append("%.2f" % (results[task]['test']['spearman'].correlation * 100))
                 else:
-                    scores.append("%.2f" % (results[task]['test']['spearman'].correlation * 100))
+                    scores.append("%.2f" % (results[task]['all']['spearman']['all'] * 100))
+
             else:
                 scores.append("0.00")
         task_names.append("Avg.")
