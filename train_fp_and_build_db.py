@@ -110,31 +110,47 @@ if __name__ == "__main__" :
     parser.add_argument('--is_attn_memo', action='store_true', default=False)
     parser.add_argument('--save_dir', type=str, default="/home/sdh/AttnCache/AttnCache/database/Llama-3.2-3B-Instruct", help='save_dir')
 
-    args = parser.parse_args()
-    args.save_dir += args.model_name_or_path + "/" + args.task_name
-    args.device = "cuda" if torch.cuda.is_available() else "cpu"
-
-    if args.is_attn_memo:
-        args.model_save_path = f'{args.save_dir}/Embedding_models/mlp_model_attn_memo-epoch{args.epoch}.pth'
-        args.db_save_path =  f"{args.save_dir}/VectorDB/attn_memo_epoch-{args.epoch}_vectors.faiss"
-    elif args.is_attn_cache:
-        args.model_save_path = f'{args.save_dir}/Embedding_models/mlp_model_attn_cache-epoch{args.epoch}.pth'
-        args.db_save_path =  f"{args.save_dir}/VectorDB/attn_cache_epoch-{args.epoch}_vectors.faiss"
-
-
-    print("===========================")
-    print("Args: ", args)
-    print("===========================")
+    parser.add_argument("--task_set", type=str,
+                        choices=['sts', 'transfer', 'full', 'na'],
+                        default='sts',
+                        help="What set of tasks to evaluate on. If not 'na', this will override '--tasks'")
     
-    if os.path.exists(args.model_save_path):
-        model = Emb(args.model_save_path)
-    else:
-        train_feature_projector(args)
-        model = Emb(args.model_save_path)
-    build_index_database(model, args)
-    current_time = datetime.now()
+    args = parser.parse_args()
+    args.device = "cuda" if torch.cuda.is_available() else "cpu"
+    save_dir = args.save_dir
 
-    print("current time: ", current_time)
+    if args.task_set == 'sts':
+        # args.tasks = ['STS12', 'STS13', 'STS14', 'STS15', 'STS16', 'STSBenchmark', 'SICKRelatedness']
+        args.tasks = ['STS14']
+
+
+    for task in args.tasks:
+        print(f"================= train fp and build db for task {task} ===============================================================")
+
+        args.save_dir = save_dir + args.model_name_or_path + "/" + task
+
+    
+        if args.is_attn_memo:
+            args.model_save_path = f'{args.save_dir}/Embedding_models/mlp_model_attn_memo-epoch{args.epoch}.pth'
+            args.db_save_path =  f"{args.save_dir}/VectorDB/attn_memo_epoch-{args.epoch}_vectors.faiss"
+        elif args.is_attn_cache:
+            args.model_save_path = f'{args.save_dir}/Embedding_models/mlp_model_attn_cache-epoch{args.epoch}.pth'
+            args.db_save_path =  f"{args.save_dir}/VectorDB/attn_cache_epoch-{args.epoch}_vectors.faiss"
+
+
+        print("===========================")
+        print("Args: ", args)
+        print("===========================")
+        
+        if os.path.exists(args.model_save_path):
+            model = Emb(args.model_save_path)
+        else:
+            train_feature_projector(args)
+            model = Emb(args.model_save_path)
+        build_index_database(model, args)
+        
+        current_time = datetime.now()
+        print("current time: ", current_time)
  
 
     

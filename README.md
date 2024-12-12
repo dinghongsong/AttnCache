@@ -50,7 +50,6 @@ python evaluation.py  \
         --save_dir /home/sdh/AttnCache/AttnCache/database/ \
         --device cpu
 ```    
-The argument `task_set` can also be set to `transfer`. Similarly, the argument `prompt_method` can also be set to `metaeol`.
 
 ## Acknowledgement
 

@@ -53,7 +53,7 @@ class SE(object):
                            'BigramShift', 'Tense', 'SubjNumber', 'ObjNumber',
                            'OddManOut', 'CoordinationInversion', 'SICKRelatedness-finetune', 'STSBenchmark-finetune', 'STSBenchmark-fix', 'STSBenchmark-dev']
 
-    def eval(self, name, is_collect_hs_apms):
+    def eval(self, name, is_collect_hs_apms, all_samples):
         # evaluate on evaluation [name], either takes string or list of strings
         if (isinstance(name, list)):
             self.results = {x: self.eval(x) for x in name}
@@ -129,6 +129,8 @@ class SE(object):
         self.results = None
         if is_collect_hs_apms:
             self.evaluation.collect_apms_hs(self.params, self.batcher)
+        elif all_samples:
+             self.results = self.evaluation.run_backup(self.params, self.batcher)
         else:
             self.results = self.evaluation.run(self.params, self.batcher)
             # self.results = self.evaluation.test(self.params, self.batcher) # plot 

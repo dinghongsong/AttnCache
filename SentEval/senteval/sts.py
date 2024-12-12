@@ -225,16 +225,26 @@ class STSEval(object):
                 # we assume get_batch already throws out the faulty ones
                 if len(batch1) == len(batch2) and len(batch1) > 0:
                     enc1, attn1, last_records1, _ = batcher(params, batch1)
+                    enc2, attn2, last_records2, _ = batcher(params, batch2)
+
+
                     print(f"================================= batch1: {batch1[0]}")
                     if last_records1 is not None and len(last_records1) != 0:
-                        print(f"================================= match1: {self.sent1[(last_records1[0][0] - 27) // 28]}")
+                        if params['current_task'] =='STSBenchmark' or params['current_task'] =="SICKRelatedness":
+                            print(f"================================= match1: {self.data['test'][0][(last_records1[0][0] - 31) // 32]}")
+                        else:
+                            print(f"================================= match1: {self.sent1[(last_records1[0][0] - 31) // 32]}")
                     else:
                         print(f"================================= no match1")
-                    
-                    enc2, attn2, last_records2, _ = batcher(params, batch2)
+
+
                     print(f"================================= batch2: {batch2[0]}")
                     if last_records2 is not None and len(last_records2) != 0:
-                        print(f"================================= match2: {self.sent1[(last_records2[0][0] - 27) // 28]}")
+                        if params['current_task'] =='STSBenchmark' or params['current_task'] =="SICKRelatedness":
+                            print(f"================================= match2: {self.data['test'][0][(last_records2[0][0] -31) // 32]}")
+                        else:
+                            print(f"================================= match2: {self.sent1[(last_records2[0][0] - 31) // 32]}")
+                        
                     else:
                         print(f"================================= no match2")
 
@@ -275,7 +285,9 @@ class STSEval(object):
             Spearman = %.4f' % (wavg_pearson, wavg_spearman))
         logging.debug('ALL (average) : Pearson = %.4f, \
             Spearman = %.4f\n' % (avg_pearson, avg_spearman))
-
+        print('ALL : Pearson = %.4f, \
+            Spearman = %.4f' % (all_pearson[0], all_spearman[0]))
+        
         return results
     
    
@@ -291,7 +303,8 @@ class STSEval(object):
             gs_scores.extend(self.data[dataset][2])
         
 
-        test_sample_num = 1000
+        test_sample_num = 100
+        run_time_list = []
         sys_scores = []
         for ii in range(0, test_sample_num, params.batch_size):
             batch1 = input1[ii:ii + params.batch_size]
@@ -299,9 +312,10 @@ class STSEval(object):
 
             # we assume get_batch already throws out the faulty ones
             if len(batch1) == len(batch2) and len(batch1) > 0:
-                enc1, attn1, last_records1, _ = batcher(params, batch1)
-                enc2, attn2, last_records2, _ = batcher(params, batch2)
-
+                enc1, attn1, last_records1, _, run_time1 = batcher(params, batch1)
+                enc2, attn2, last_records2, _, run_time2  = batcher(params, batch2)
+                run_time_list.append(run_time1)
+                run_time_list.append(run_time2)
                 print(f"================================= batch1: {batch1[0]}")
                 if last_records1 is not None and len(last_records1) != 0:
                     if params['current_task'] =='STSBenchmark' or params['current_task'] =="SICKRelatedness":
@@ -340,7 +354,10 @@ class STSEval(object):
                                     #    'mean': avg_spearman,
                                     #    'wmean': wavg_spearman
                                        }}
+        results['run_time'] = run_time_list
         logging.debug('ALL : Pearson = %.4f, \
+            Spearman = %.4f' % (all_pearson[0], all_spearman[0]))
+        print('ALL : Pearson = %.4f, \
             Spearman = %.4f' % (all_pearson[0], all_spearman[0]))
 
 

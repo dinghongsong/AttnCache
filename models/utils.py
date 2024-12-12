@@ -17,7 +17,7 @@ class LinearNet(nn.Module):
 
         # self.fc1 = nn.Linear(49152, 128) # 256
         # self.fc1 = nn.Linear(98304, 128) # 3b
-        self.fc1 = nn.Linear(131072, 128) # 3b
+        self.fc1 = nn.Linear(131072, 128) # 7b 8b
         # self.fc1 = nn.Linear(393216, 128) # 512
 
 

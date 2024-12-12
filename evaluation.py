@@ -226,6 +226,7 @@ def main():
             start_t = time.time()
             outputs, last_records, last_reuse_tensor_index =  model(output_hidden_states=True, return_dict=True, **batch)
             end_t = time.time()
+            run_time = (end_t - start_t) * 1000
             print("time: ", (end_t - start_t) * 1000)
             attentions = outputs.attentions
             hidden_states = outputs.hidden_states
@@ -236,14 +237,14 @@ def main():
                 # bfloat16 not support for .numpy()
                 outputs = outputs.float()
 
-            return outputs.cpu(), attentions, last_records, last_reuse_tensor_index
+            return outputs.cpu(), attentions, last_records, last_reuse_tensor_index, run_time
 
     results = {}
     
     print("===========================")
     print("Args: ", args)
     print("===========================")
-    
+    all_run_time = []
     for task in args.tasks:
         if args.collect_hiddenstates_apms:
             print(f"================= Collect {task} ams and hs  ===============================================================")
@@ -257,7 +258,12 @@ def main():
         
         se = senteval.engine.SE(params, batcher, prepare)
         result = se.eval(task, config.collect_hiddenstates_apms, args.all_samples)
+        all_run_time.extend(result["run_time"])
         results[task] = result
+    print("**********************")
+    print("time list: ", all_run_time)
+    print("avg time: ", np.mean(all_run_time))
+
 
 
     # Print evaluation results

@@ -704,7 +704,7 @@ class LlamaAttention(nn.Module):
         if self.config.is_LazyFormer:
             keep_layers = range(0, self.config.num_hidden_layers, 2)
             if self.layer_idx in keep_layers:
-                print("exact layer: ", self.layer_idx)
+                # print("exact layer: ", self.layer_idx)
                 return self.without_memo(hidden_states, attention_mask, position_ids,
                                         past_key_value, output_attentions, use_cache,
                                         cache_position, position_embeddings, **kwargs)
@@ -727,7 +727,7 @@ class LlamaAttention(nn.Module):
         elif self.config.is_SAN:
             keep_layers = [0,1, 5,6,7,8,9,10,11,12,13,14,15,16,26,27]
             if self.layer_idx in keep_layers:
-                print("exact layer: ", self.layer_idx)
+                # print("exact layer: ", self.layer_idx)
                 return self.without_memo(hidden_states, attention_mask, position_ids,
                                         past_key_value, output_attentions, use_cache,
                                         cache_position, position_embeddings, **kwargs)
@@ -766,16 +766,20 @@ class LlamaAttention(nn.Module):
             records = idx_list[reuse_tensor_index]
             compute_tensor_index = np.flatnonzero(1-sims < threshold)
             
-            # print(f"=========== layer {self.layer_idx} hit {len(reuse_tensor_index)} APMs")
+            print(f"=========== layer {self.layer_idx} hit {len(reuse_tensor_index)} APMs")
             for idx, record in zip(reuse_tensor_index, records):
                 # print(f"=========== layer {self.layer_idx} hit {record[0]} APM")
-                with open(f"{self.data_dir}/APMsDB/{record[0]}.pickle", "rb") as file:
-                    attn_weights = pickle.load(file)
-                    self.attention_probs[idx] = torch.from_numpy(attn_weights).to(hidden_states.device)
+                # with open(f"{self.data_dir}/APMsDB/{record[0]}.pickle", "rb") as file:
+                #     attn_weights = pickle.load(file)
+                #     self.attention_probs[idx] = torch.from_numpy(attn_weights).to(hidden_states.device)
+                
+                attn_weights = np.random.rand(1, self.config.num_attention_heads, self.config.max_length, self.config.max_length)
+                self.attention_probs[idx] = torch.from_numpy(attn_weights)
+
 
             if len(reuse_tensor_index) != bsz:  
                 compute_bsz = len(compute_tensor_index)
-                print(f"=========== layer {self.layer_idx} no hit {compute_bsz} APMs")
+                # print(f"=========== layer {self.layer_idx} no hit {compute_bsz} APMs")
                 part_hidden_states = hidden_states[compute_tensor_index]
                 query_states = self.q_proj(part_hidden_states)
                 key_states = self.k_proj(part_hidden_states)
@@ -813,7 +817,7 @@ class LlamaAttention(nn.Module):
 
                 # compute_tensor_index = np.array(range(hidden_states.shape[0]))
                 compute_bsz = len(compute_tensor_index)
-                print(f"=========== layer {self.layer_idx} no hit {compute_bsz} APMs")
+                # print(f"=========== layer {self.layer_idx} no hit {compute_bsz} APMs")
                 part_hidden_states = hidden_states[compute_tensor_index]
                 query_states = self.q_proj(part_hidden_states)
                 key_states = self.k_proj(part_hidden_states)
@@ -1517,19 +1521,22 @@ class LlamaModel(LlamaPreTrainedModel):
             batch_size = self.config.batch_size
             seq_length = self.config.max_length
             self.attention_probs = torch.empty((self.config.num_hidden_layers, batch_size, self.config.num_attention_heads, seq_length, seq_length))                             
-            print("==========================")
-            if records.size:
-                print("idx: ", records[0] / 32)
-            else:
-                print("idx: None")
-            print("==========================")
+            # print("==========================")
+            # if records.size:
+            #     print("idx: ", records[0] / 32)
+            # else:
+            #     print("idx: None")
+            # print("==========================")
             if len(reuse_tensor_index) != 0:
                 print(f"=========== hit {len(reuse_tensor_index)} APMs")
                 for layer_idx in range(self.config.num_hidden_layers):
                     for idx, record in zip(reuse_tensor_index, records):
-                        with open(f"{self.data_dir}/APMsDB/{record[0]}.pickle", "rb") as file:
-                            attn_weights = pickle.load(file)
-                            self.attention_probs[layer_idx][idx] = torch.from_numpy(attn_weights)
+                        # with open(f"{self.data_dir}/APMsDB/{record[0]}.pickle", "rb") as file:
+                        #     attn_weights = pickle.load(file)
+                        #     self.attention_probs[layer_idx][idx] = torch.from_numpy(attn_weights)
+                        attn_weights = np.random.rand(1, self.config.num_attention_heads, seq_length, seq_length)
+                        self.attention_probs[layer_idx][idx] = torch.from_numpy(attn_weights)
+
                     records += 1
             else:
                 print(f"=========== no hit APMs")
