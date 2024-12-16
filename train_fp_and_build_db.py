@@ -121,7 +121,7 @@ if __name__ == "__main__" :
 
     if args.task_set == 'sts':
         # args.tasks = ['STS12', 'STS13', 'STS14', 'STS15', 'STS16', 'STSBenchmark', 'SICKRelatedness']
-        args.tasks = ['STS14']
+        args.tasks = ['STS15']
 
 
     for task in args.tasks:

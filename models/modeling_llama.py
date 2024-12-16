@@ -717,7 +717,6 @@ class LlamaAttention(nn.Module):
 
 
                 attn_output = torch.matmul(last_self_attns, value_states)
-            
                 attn_output = attn_output.transpose(1, 2).contiguous()
                 attn_output = attn_output.reshape(bsz, q_len, -1)
                 attn_output = self.o_proj(attn_output)
@@ -725,7 +724,8 @@ class LlamaAttention(nn.Module):
                 return attn_output, last_self_attns, past_key_value,
 
         elif self.config.is_SAN:
-            keep_layers = [0,1, 5,6,7,8,9,10,11,12,13,14,15,16,26,27]
+            # keep_layers = [0,1, 5,6,7,8,9,10,11,12,13,14,15,16,26,27]
+            keep_layers = [0,1,2,3,4,5,6,7,8,9,31]
             if self.layer_idx in keep_layers:
                 # print("exact layer: ", self.layer_idx)
                 return self.without_memo(hidden_states, attention_mask, position_ids,
@@ -757,7 +757,8 @@ class LlamaAttention(nn.Module):
             value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
             value_states = repeat_kv(value_states, self.num_key_value_groups)
             
-            threshold = self.config.threshold
+            # threshold = self.config.threshold
+            threshold = 0.9
             # feature_vector = self.emb.embed(hidden_states.cpu().detach().numpy())
             feature_vector = self.emb.embed(hidden_states.cpu().detach().numpy())
             sims, idx_list = self.vecDB.search(feature_vector)
@@ -766,7 +767,7 @@ class LlamaAttention(nn.Module):
             records = idx_list[reuse_tensor_index]
             compute_tensor_index = np.flatnonzero(1-sims < threshold)
             
-            print(f"=========== layer {self.layer_idx} hit {len(reuse_tensor_index)} APMs")
+            # print(f"=========== layer {self.layer_idx} hit {len(reuse_tensor_index)} APMs")
             for idx, record in zip(reuse_tensor_index, records):
                 # print(f"=========== layer {self.layer_idx} hit {record[0]} APM")
                 # with open(f"{self.data_dir}/APMsDB/{record[0]}.pickle", "rb") as file:
@@ -806,7 +807,7 @@ class LlamaAttention(nn.Module):
             return attn_output, None, past_key_value
     
 
-        elif self.config.is_attn_cache:  # use attn_memo
+        elif self.config.is_attn_cache:  # use attn_cache
                          
             bsz, q_len, _ = hidden_states.size()
             value_states = self.v_proj(hidden_states)
@@ -1150,6 +1151,7 @@ class LlamaDecoderLayer(nn.Module):
         hidden_states = self.input_layernorm(hidden_states)
 
         # Self Attention
+        start_t = time.time()
         hidden_states, self_attn_weights, present_key_value = self.self_attn(
             hidden_states=hidden_states,
             attention_mask=attention_mask,
@@ -1163,6 +1165,9 @@ class LlamaDecoderLayer(nn.Module):
             compute_tensor_index = compute_tensor_index,
             **kwargs,
         )
+        end_t = time.time()
+        self_attention_time = (end_t - start_t) * 1000
+        # print(f"self attention time: ", self_attention_time)
         hidden_states = residual + hidden_states
 
         # Fully Connected
@@ -1181,7 +1186,7 @@ class LlamaDecoderLayer(nn.Module):
 
     
 
-        return outputs
+        return outputs, self_attention_time
     
     def attn_drop_forward(
         self,
@@ -1498,8 +1503,8 @@ class LlamaModel(LlamaPreTrainedModel):
         
         ############################################################### search engine  
         
-        
-        if self.config.is_attn_cache:  # use attn_memo
+        attn_cache_preprocess_start = time.time()
+        if self.config.is_attn_cache:  # use attn_cache
             
             self.vecDB = VecDB()
             epoch = self.config.training_epoch
@@ -1543,12 +1548,15 @@ class LlamaModel(LlamaPreTrainedModel):
 
             self.attention_probs = self.attention_probs.to(hidden_states.device)
         ##############################################################
+        attn_cache_preprocess_end = time.time()
+        
+            
+        all_self_attention_time = []
+        if self.config.is_attn_cache:
+            all_self_attention_time.append((attn_cache_preprocess_end - attn_cache_preprocess_start) * 1000)
 
         layer_idx = 0
         block_drop_layer = [20, 21, 22, 23]
-        
-            
-
         for decoder_layer in self.layers:
 
             ####################
@@ -1572,7 +1580,8 @@ class LlamaModel(LlamaPreTrainedModel):
                     position_embeddings,
                 )
             else:
-                layer_outputs = decoder_layer(
+                start_t = time.time()
+                layer_outputs, self_attention_time = decoder_layer(
                     hidden_states,
                     attention_mask=causal_mask,
                     position_ids=position_ids,
@@ -1584,6 +1593,11 @@ class LlamaModel(LlamaPreTrainedModel):
                     last_self_attns=self.attention_probs[layer_idx] if self.config.is_attn_cache else last_self_attns,
                     compute_tensor_index = compute_tensor_index if self.config.is_attn_cache else None,
                 )
+                end_t = time.time()
+                # run_time = (end_t - start_t) * 1000
+                # print(f"layer {layer_idx} self attention time: ", self_attention_time)
+                all_self_attention_time.append(self_attention_time)
+
             layer_idx += 1 
             hidden_states = layer_outputs[0]  
 
@@ -1611,7 +1625,7 @@ class LlamaModel(LlamaPreTrainedModel):
             past_key_values=next_cache,
             hidden_states=all_hidden_states,
             attentions=all_self_attns,
-        ), records, reuse_tensor_index
+        ), records, reuse_tensor_index, np.mean(all_self_attention_time)
 
     def block_drop_forward(
         self,
@@ -1919,7 +1933,8 @@ class LlamaForCausalLM(LlamaPreTrainedModel, GenerationMixin):
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
         # decoder outputs consists of (dec_features, layer_state, dec_hidden, dec_attn)
-        outputs, last_records, last_reuse_tensor_index = self.model(
+        start_t = time.time()
+        outputs, last_records, last_reuse_tensor_index, mean_self_attn_time = self.model(
             input_ids=input_ids,
             attention_mask=attention_mask,
             position_ids=position_ids,
@@ -1931,6 +1946,9 @@ class LlamaForCausalLM(LlamaPreTrainedModel, GenerationMixin):
             return_dict=return_dict,
             cache_position=cache_position,
         )
+        end_t = time.time()
+        run_time = (end_t - start_t) * 1000
+        # print("inference time: ", run_time)
 
         hidden_states = outputs[0]
         if self.config.pretraining_tp > 1:
@@ -1971,7 +1989,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel, GenerationMixin):
             past_key_values=outputs.past_key_values,
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
-        ), last_records, last_reuse_tensor_index
+        ), last_records, last_reuse_tensor_index, mean_self_attn_time
 
     def prepare_inputs_for_generation(
         self,

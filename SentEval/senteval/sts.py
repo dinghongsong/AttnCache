@@ -303,7 +303,7 @@ class STSEval(object):
             gs_scores.extend(self.data[dataset][2])
         
 
-        test_sample_num = 100
+        test_sample_num = params.batch_size
         run_time_list = []
         sys_scores = []
         for ii in range(0, test_sample_num, params.batch_size):
@@ -316,6 +316,7 @@ class STSEval(object):
                 enc2, attn2, last_records2, _, run_time2  = batcher(params, batch2)
                 run_time_list.append(run_time1)
                 run_time_list.append(run_time2)
+                
                 print(f"================================= batch1: {batch1[0]}")
                 if last_records1 is not None and len(last_records1) != 0:
                     if params['current_task'] =='STSBenchmark' or params['current_task'] =="SICKRelatedness":
@@ -365,7 +366,7 @@ class STSEval(object):
     
 
     def collect_apms_hs(self, params, batcher):
-        sample_num = 1000  
+        sample_num = 3000  
         for ii in range(0, sample_num):
             batch = [self.sent1[ii]]
             embedding = batcher(params, batch)

@@ -144,7 +144,7 @@ def main():
     if args.task_set == 'sts':
         args.tasks = ['STS12', 'STS13', 'STS14', 'STS15', 'STS16', 'STSBenchmark', 'SICKRelatedness']
         # args.tasks = ['SICKRelatedness']
-        # args.tasks = ['STS14']
+        # args.tasks = ['STS15']
         # args.tasks = [f'{args.task_name}']
         if args.mode == 'dev':
             args.tasks = ['STSBenchmark-dev']
@@ -224,10 +224,11 @@ def main():
         # Get raw embeddings
         with torch.no_grad():
             start_t = time.time()
-            outputs, last_records, last_reuse_tensor_index =  model(output_hidden_states=True, return_dict=True, **batch)
+            outputs, last_records, last_reuse_tensor_index, mean_self_attn_time =  model(output_hidden_states=True, return_dict=True, **batch)
             end_t = time.time()
             run_time = (end_t - start_t) * 1000
-            print("time: ", (end_t - start_t) * 1000)
+            # print("time: ", (end_t - start_t) * 1000)
+            print("mean_self_attn_time ", mean_self_attn_time)
             attentions = outputs.attentions
             hidden_states = outputs.hidden_states
             outputs = hidden_states[-1][:, -1, :]
@@ -237,7 +238,7 @@ def main():
                 # bfloat16 not support for .numpy()
                 outputs = outputs.float()
 
-            return outputs.cpu(), attentions, last_records, last_reuse_tensor_index, run_time
+            return outputs.cpu(), attentions, last_records, last_reuse_tensor_index, mean_self_attn_time
 
     results = {}
     
