@@ -1,0 +1,61 @@
+# AttnCache: Accelerating Self-Attention Inference on Big Memory Systems Using Attention Cache
+
+![schemes](figure/attncache_fig.png)
+
+## Usage
+
+### Environment Setup
+
+```
+conda env create -f environment.yml -n AttnCache
+conda activate AttnCache 
+```
+
+### Train BERT
+
+Train a BERT model from scratch on the SST-2 dataset.
+
+```
+python train_bert_sst2.py \
+        --dataset sst2 \
+        --model-name bert-base-uncased \
+        --save-path ./trained_bert_sst2 
+```
+
+### Collect Hidden States and Attention Maps 
+Run the following command to load the pre-trained BERT model from the `./trained_bert_sst2` directory, collect Hidden States and Attention Maps, and save them in `./BertDB`. 
+
+```
+python collect_hs_apms.py \
+        --dataset sst2 \
+        --model-path ./trained_bert_sst2 \
+        --save-dir ./BertDB 
+        
+```
+
+
+### Train Feature Projector and Build Index DB
+
+
+```
+python train_fp_and_build_db.py --save-dir ./BertDB
+
+```
+## Evaluation
+```
+python test.py --threshold 0.995
+```
+<!-- ## Citation
+
+If you find AttnCache useful or relevant to your project and research, please kindly cite our paper:
+
+```bibtex
+@article{xiao2023streamingllm,
+        title={Efficient Streaming Language Models with Attention Sinks},
+        author={Xiao, Guangxuan and Tian, Yuandong and Chen, Beidi and Han, Song and Lewis, Mike},
+        journal={arXiv},
+        year={2023}
+        }
+``` -->
+
+
