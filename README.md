@@ -7,8 +7,13 @@
 ### Environment Setup
 
 ```
-conda env create -f environment.yml -n AttnCache
-conda activate AttnCache 
+conda create -n AttnCache python=3.10
+conda activate AttnCache
+
+pip install torch torchvision torchaudio
+pip install transformers==4.50.3 accelerate datasets  scikit-learn scipy 
+
+
 ```
 
 ### Train BERT
