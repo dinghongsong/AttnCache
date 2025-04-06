@@ -34,7 +34,6 @@ python collect_hs_apms.py \
         --dataset sst2 \
         --model-path ./trained_bert_sst2 \
         --save-dir ./BertDB 
-        
 ```
 
 
@@ -43,7 +42,6 @@ python collect_hs_apms.py \
 
 ```
 python train_fp_and_build_db.py --save-dir ./BertDB
-
 ```
 ## Evaluation
 ```
