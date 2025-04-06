@@ -14,7 +14,7 @@ import torch
 from models.utils import VecDB, Emb, LatencyCollector, register_forward_latency_collector
 import pickle
 from sklearn.metrics import accuracy_score
-
+from models.modeling_bert import BertForSequenceClassification
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -84,7 +84,7 @@ if __name__ == "__main__":
     args = parse_args()
     tokenizer = AutoTokenizer.from_pretrained(args.model_path)
     config = AutoConfig.from_pretrained(args.model_path)
-    model = AutoModelForSequenceClassification.from_pretrained(args.model_path)
+    model = BertForSequenceClassification.from_pretrained(args.model_path)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
     model.eval()  
