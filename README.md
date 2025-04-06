@@ -12,7 +12,6 @@ conda activate AttnCache
 
 pip install torch torchvision torchaudio
 pip install transformers==4.50.3 accelerate datasets scikit-learn scipy faiss-cpu
-
 ```
 
 ### Train BERT
