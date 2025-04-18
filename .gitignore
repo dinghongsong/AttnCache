@@ -1,0 +1,18 @@
+# python
+__pycache__/
+database
+figures
+*.json
+*.log
+*.txt
+*.csv
+*.tar
+*.bin
+*pickle
+SentEval/data/
+BertDB*/
+*DB/
+data/
+results/
+.vscode/
+trained_bert_sst2/
