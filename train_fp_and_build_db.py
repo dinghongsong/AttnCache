@@ -102,7 +102,7 @@ if __name__ == "__main__" :
     parser = argparse.ArgumentParser()
     parser.add_argument('--epoch', '-e', type=int, default=3, help='Number of epoch to train')
     parser.add_argument('--batchsize', '-b', type=int, default=32, help='Number of images in each mini-batch')
-    parser.add_argument('--save-dir', type=str, default="./LlamaDB", help='save_dir')
+    parser.add_argument('--save-dir', type=str, default="./Llama3_8b_DB", help='save_dir')
 
  
     args = parser.parse_args()

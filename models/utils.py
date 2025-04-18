@@ -19,7 +19,7 @@ class LinearNet(nn.Module):
         # bert
         # self.fc1 = nn.Linear(12288, 128) # 7b 8b
         # llama
-        self.fc1 = nn.Linear(196608, 128) # 7b 8b
+        self.fc1 = nn.Linear(262144, 128) #llama3-8b
 
 
         self.fc2 = nn.Linear(128, 128)
