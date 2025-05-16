@@ -11,7 +11,7 @@ figures
 *pickle
 SentEval/data/
 BertDB*/
-*DB/
+*DB*/
 data/
 results/
 .vscode/

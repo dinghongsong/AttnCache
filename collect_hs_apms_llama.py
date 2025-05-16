@@ -14,8 +14,23 @@ import torch
 import numpy as np
 import pandas as pd
 from models.modeling_llama import LlamaForCausalLM
+from models.utils import VecDB, Emb, LatencyCollector, register_forward_latency_collector, parse_args
+
 from categories import subcategories, categories
 from collections import defaultdict
+
+def load_model_and_tokenizer(args):
+
+    tokenizer = AutoTokenizer.from_pretrained(args.model_path, use_auth_token=True)
+    tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.padding_side = "left"
+    config = AutoConfig.from_pretrained(args.model_path)
+
+    model = LlamaForCausalLM.from_pretrained(args.model_path,  torch_dtype=torch.bfloat16)
+    model.to(torch.device(args.device))
+    model.eval()
+
+    return model, tokenizer, config
 
 choices = ["A", "B", "C", "D"]
 def format_subject(subject):
@@ -48,24 +63,6 @@ def gen_prompt(train_df, subject, k=-1):
     return prompt
 
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument("--model-path", type=str, default="meta-llama/Llama-3.1-8B-Instruct")
-    parser.add_argument("--save-dir", type=str, default="Llama3_8b_DB")
-
-    # =========================== MMLU Dataset ===========================
-    parser.add_argument("--data_dir", "-d", type=str, default="data")
-    parser.add_argument("--ntrain", "-k", type=int, default=0)
-    parser.add_argument("--max-length", type=int, default=256)
-    parser.add_argument("--subcategory", type=str, choices=['math', 'health', 'physics', 'business', 'biology', 
-                                                        'chemistry', 'computer science', 'economics', 
-                                                        'engineering', 'philosophy', 'other', 'history', 
-                                                        'geography', 'politics', 'psychology', 'culture', 'law'], 
-                        default='math', help="17 subcategories in MMLU")
-
-
-    return parser.parse_args()
 
 
 if __name__ == "__main__":
@@ -73,18 +70,8 @@ if __name__ == "__main__":
     # =================== model ===================
 
     args = parse_args()
-    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    device =  torch.device("cpu")
+    model, tokenizer, config = load_model_and_tokenizer(args)
 
-    tokenizer = AutoTokenizer.from_pretrained(args.model_path)
-    tokenizer.pad_token = tokenizer.eos_token
-    tokenizer.padding_side = "left"
-    config = AutoConfig.from_pretrained(args.model_path)
-
-    model = LlamaForCausalLM.from_pretrained(args.model_path)
-    model.to(device)
-    model.eval()  
-   
    # ==================== MMLU Dataset ===================
     
     subcats = defaultdict(list)
@@ -97,6 +84,8 @@ if __name__ == "__main__":
     # =================== collect hidden_states & apms & attn masks ===================
 
     cnt = 0
+    max_len = 0
+    length = []
     for subject in subcategory:
 
         test_df = pd.read_csv(
@@ -111,12 +100,16 @@ if __name__ == "__main__":
             cnt += 1
             prompt_end = format_example(test_df, i, include_answer=False)
             prompt = train_prompt + prompt_end
-            inputs = tokenizer(prompt, padding="max_length", truncation=True, return_tensors="pt", max_length=args.max_length).to(device)
+            inputs = tokenizer(prompt, padding="max_length", truncation=True, return_tensors="pt", max_length=args.max_length * (args.ntrain + 1)).to(args.device)
+            
+            non_pad_token_count = inputs['attention_mask'].sum().item()
+            max_len = max(max_len, non_pad_token_count)
+            length.append(non_pad_token_count)
 
             with torch.no_grad():
                 outputs = model(**inputs, collect_hiddenstates_apms=True, save_dir=args.save_dir)
         
-    print(f"Collection {args.subcategory} {cnt} sentences success!")
+    print(f"Collection {args.subcategory} {cnt} sentences, shots: {args.ntrain}, max_len: {max_len}, avg_len: { sum(length) / len(length)}")
             
 
 

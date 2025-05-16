@@ -11,7 +11,7 @@ from statistics import mode
 import torch 
 import numpy as np
 import os
-from models.utils import VecDB, Emb, LatencyCollector, register_forward_latency_collector
+from models.utils import VecDB, Emb, LatencyCollector, register_forward_latency_collector, parse_args
 import pickle
 from sklearn.metrics import accuracy_score
 import pandas as pd
@@ -19,6 +19,20 @@ from models.modeling_llama import LlamaForCausalLM
 from categories import subcategories, categories
 from collections import defaultdict
 import termcolor
+
+
+def load_model_and_tokenizer(args):
+
+    tokenizer = AutoTokenizer.from_pretrained(args.model_path)
+    tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.padding_side = "left"
+    config = AutoConfig.from_pretrained(args.model_path)
+
+    model = LlamaForCausalLM.from_pretrained(args.model_path,  torch_dtype=torch.bfloat16)
+    model.to(torch.device(device))
+    model.eval()
+
+    return model, tokenizer, config
 
 choices = ["A", "B", "C", "D"]
 def format_subject(subject):
@@ -65,25 +79,6 @@ def gen_prompt(train_df, subject, k=-1):
     return prompt
 
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-
-    # parser.add_argument("--model-path", type=str, default="meta-llama/Llama-3.2-3B-Instruct") 
-    parser.add_argument("--model-path", type=str, default="meta-llama/Llama-3.1-8B-Instruct")   
-    parser.add_argument("--save-dir", type=str, default="Llama3_8b_DB")
-    parser.add_argument("--threshold", type=float, default=0.95)
-
-    # =========================== MMLU Dataset ===========================
-    parser.add_argument("--data_dir", "-d", type=str, default="data")
-    parser.add_argument("--ntrain", "-k", type=int, default=0)
-    parser.add_argument("--max-length", type=int, default=256)
-    parser.add_argument("--subcategory", type=str, choices=['math', 'health', 'physics', 'business', 'biology', 
-                                                    'chemistry', 'computer science', 'economics', 
-                                                    'engineering', 'philosophy', 'other', 'history', 
-                                                    'geography', 'politics', 'psychology', 'culture', 'law'], 
-                    default='math', help="17 subcategories in MMLU")
-
-    return parser.parse_args()
 
 def retrieve(data):
     inputs = tokenizer(data, padding="max_length", truncation=True, max_length=args.max_length, return_tensors="pt")
@@ -91,8 +86,9 @@ def retrieve(data):
     
     x = model.model.embed_tokens(inputs["input_ids"])
     x = model.model.layers[0].input_layernorm(x)
-
-    feature_vector = feature_projector.embed(x.cpu().detach().numpy())
+    x = x.to(args.device)
+    feature_vector =  feature_projector.embed(x).cpu().detach()
+    feature_vector = feature_vector.to(torch.float32).numpy()
     sims, idx_list = vecDB.search(feature_vector)
 
     reuse_tensor_index = np.flatnonzero(1 - sims >= args.threshold)
@@ -107,14 +103,14 @@ def evaluate(reuse_tensor_index, hitted_records, compute_tensor_index, inputs):
     
     with torch.no_grad():
         total_tensor_index = np.concatenate((reuse_tensor_index, compute_tensor_index), axis=0)
-        attention_cache = torch.empty((config.num_hidden_layers, len(total_tensor_index), config.num_attention_heads, args.max_length, args.max_length))                             
+        attention_cache = torch.empty((config.num_hidden_layers, len(total_tensor_index), config.num_attention_heads, args.max_length, args.max_length),dtype=torch.bfloat16)                             
         if len(reuse_tensor_index) != 0:
             print(f"=========== hit {len(reuse_tensor_index)} APMs")
             for layer_idx in range(config.num_hidden_layers):
                 for idx, record in zip(reuse_tensor_index, hitted_records):
-                    with open(f"{args.database_path}/APMsDB/{record[0]}.pickle", "rb") as file:
-                        attn_weights = pickle.load(file)
-                        attention_cache[layer_idx][idx] = torch.from_numpy(attn_weights)
+                    x_loaded = torch.load(f"{args.save_dir}/States/{record[0]}.pt", map_location='cuda')
+                    attn_weights = x_loaded["attn_weights"]
+                    attention_cache[layer_idx][idx] = attn_weights
 
                 hitted_records += 1  # index of next layer hitted apms
         else:
@@ -149,27 +145,12 @@ if __name__ == "__main__":
     # =================== model ===================
 
     args = parse_args()
-    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    device =  torch.device("cpu")
-
-    tokenizer = AutoTokenizer.from_pretrained(args.model_path)
-    tokenizer.pad_token = tokenizer.eos_token
-    tokenizer.padding_side = "left"
-    config = AutoConfig.from_pretrained(args.model_path)
-
-    model = LlamaForCausalLM.from_pretrained(args.model_path)
-    model.to(device)
-    model.eval()  
-
-
-    # =================== feature_projector & vecDB ===================
-
-    feature_projector_save_path = f'{args.database_path}/Embedding_models/mlp_model_attn_cache-epoch3.pth'
-    feature_projector = Emb(f"{feature_projector_save_path}")
-    vecDB_save_path =  f"{args.database_path}/VectorDB/attn_cache_epoch-3_vectors.faiss"
-    vecDB = VecDB().load(f"{vecDB_save_path}") 
     
-    
+    device = torch.device('cuda')
+    # device = torch.device('cpu')
+
+    model, tokenizer, config = load_model_and_tokenizer(args)
+
     # =================== MMLU Dataset ===================
    
     subcats = defaultdict(list)
@@ -179,6 +160,13 @@ if __name__ == "__main__":
 
     subcategory = subcats[f'{args.subcategory}']
 
+    # =================== feature_projector & vecDB ===================
+
+    feature_projector = Emb(args.feature_projector_save_path, args.model_path, args.device)
+    # vecDB_save_path =  f"{args.save_dir}/VectorDB/attn_cache_epoch-3_vectors.faiss"
+    vecDB = VecDB().load(args.vec_db_save_path) 
+    
+    
     # =================== evaluation  ===================
     
     all_test_df = []
@@ -241,19 +229,19 @@ if __name__ == "__main__":
                 # print("sentence 2 lenth: ", len(t2))
                 
                 # =================== USE AttnCache ===================
-
+                # print("=================== USE AttnCache ===================")
                 outputs, self_attn_latency_collector, e2e_latency_collector, ttft_list = evaluate(reuse_tensor_index, hitted_records, compute_tensor_index, inputs)
 
                 self_attn_latency = self_attn_latency_collector.latency_list[1:]
                 self_attn_average_time = np.mean(self_attn_latency) * 1000
-                print(f"self-attn with_attn_cache average time: {self_attn_average_time} ms")
+                # print(f"self-attn average time: {self_attn_average_time} ms")
 
                 e2e_latency = e2e_latency_collector.latency_list[1:]
                 e2e_latency_average_time = np.mean(e2e_latency) * 1000
-                print(f"end to end with_attn_cache average time: {e2e_latency_average_time} ms")
+                # print(f"end to end average time: {e2e_latency_average_time} ms")
 
                 ttft_average_time = np.mean(ttft_list[1:])
-                print(f"time to first token average time: {ttft_average_time} ms")
+                # print(f"TTFT time: {ttft_average_time} ms")
 
                 logits = outputs.logits[:, -1, :][0]
                 probs = (
@@ -275,7 +263,7 @@ if __name__ == "__main__":
 
                 # =================== without AttnCache ===================
                 
-                
+                # print("=================== without AttnCache ===================")
                 self_attn_latency_collector = LatencyCollector()
                 register_forward_latency_collector(self_attn_latency_collector, model.model.layers[-1].self_attn)
                 e2e_latency_collector = LatencyCollector()
@@ -294,17 +282,18 @@ if __name__ == "__main__":
 
                 self_attn_latency = self_attn_latency_collector.latency_list[1:]
                 self_attn_average_time_wo = np.mean(self_attn_latency) * 1000
-                print(f"self-attn without_attn_cache average time: {self_attn_average_time_wo} ms")
+                # print(f"self-attn average time: {self_attn_average_time_wo} ms")
 
                 e2e_latency = e2e_latency_collector.latency_list[1:]
                 e2e_latency_average_time_wo = np.mean(e2e_latency) * 1000
-                print(f"end to end without_attn_cache average time: {e2e_latency_average_time_wo} ms")
+                # print(f"end to end average time: {e2e_latency_average_time_wo} ms")
 
                 
 
                 ttft_average_time = np.mean(ttft_list[1:])
-                print(f"time to first token average time: {ttft_average_time} ms")
-
+                # print(f"TTFT time: {ttft_average_time} ms")
+                
+                print("=================== Speedup ===================")
                 print("self-att average speedup: ", self_attn_average_time_wo / self_attn_average_time)
                 print("end to end average speedup: ", e2e_latency_average_time_wo / e2e_latency_average_time)
 

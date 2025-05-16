@@ -618,37 +618,31 @@ class LlamaAttention(nn.Module):
         attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
        
 
-        ######################### collect attention_probs / hidden_states #####################################
+        ######################### collect attention_maps / hidden_states #####################################
+     
         if collect_hiddenstates_apms:
 
-            directories = [
-                "APMsDB", 
-                "AttnMask", 
-                "Embedding_models", 
-                "HiddenStatesDB", 
-                "VectorDB"
-            ]
+            directories = ["States", "Embedding_models", "VectorDB"]
 
-            for d in directories:
-                directory = f"{save_dir}/{d}"
+            for dir in directories:
+                directory = f"{save_dir}/{dir}"
                 if not os.path.exists(directory):
                     os.makedirs(directory)
                     
-            files_num = len(os.listdir(f"{save_dir}/APMsDB"))
+            files_num = len(os.listdir(f"{save_dir}/States"))
 
-            with open(f"{save_dir}/APMsDB/{files_num}.pickle", "wb") as file:
-                pickle.dump(attn_weights.cpu().detach().numpy(), file)
-
-            with open(f"{save_dir}/HiddenStatesDB/{files_num}.pickle", "wb") as file:
-                pickle.dump(hidden_states.cpu().detach().numpy(), file)
-
-            with open(f"{save_dir}/AttnMask/{files_num}.pickle", "wb") as file:
-                pickle.dump(attention_mask.cpu().detach().numpy(), file)
-
+            states = {
+                "attn_weights": attn_weights,
+                "hidden_states": hidden_states,
+                "attention_mask": attention_mask
+            }
+            torch.save(states, f"{save_dir}/States/{files_num}.pt")
             
             files_num += 1
             print(f"===== saved {files_num} AttnMask, APMs and HiddenStates to {save_dir}")
-        ########################################################################################################
+      
+      
+        #########################################################################################################
 
         attn_output = torch.matmul(attn_weights, value_states)
         attn_output = attn_output.transpose(1, 2).contiguous()
