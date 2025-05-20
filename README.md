@@ -25,7 +25,7 @@ wget https://people.eecs.berkeley.edu/~hendrycks/data.tar
 
 tar -xf data.tar 
 ```
-## Quick Start:
+## Quick Start
 ### Collect Hidden States and Attention Maps 
 <!-- Run the following command to load the pre-trained BERT model from the `./trained_bert_sst2` directory, collect Hidden States and Attention Maps, and save them in `./BertDB`.  -->
 
