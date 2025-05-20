@@ -13,20 +13,48 @@ from statistics import mode
 import torch 
 import numpy as np
 import pandas as pd
-from models.modeling_llama import LlamaForCausalLM
 from models.utils import VecDB, Emb, LatencyCollector, register_forward_latency_collector, parse_args
 
 from categories import subcategories, categories
 from collections import defaultdict
+from transformers import AutoTokenizer, AutoModelForCausalLM, GenerationConfig, BitsAndBytesConfig
+from models.modeling_qwen2_moe import Qwen2MoeForCausalLM
+from models.modeling_deepseek import DeepseekForCausalLM
+from models.modeling_llama import LlamaForCausalLM
 
 def load_model_and_tokenizer(args):
 
     tokenizer = AutoTokenizer.from_pretrained(args.model_path, use_auth_token=True)
     tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "left"
-    config = AutoConfig.from_pretrained(args.model_path)
+    config = AutoConfig.from_pretrained(args.model_path, trust_remote_code=True)
+    bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=torch.bfloat16,  
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4"  
+        )
+           
 
-    model = LlamaForCausalLM.from_pretrained(args.model_path,  torch_dtype=torch.bfloat16)
+    if args.model_path == "deepseek-ai/deepseek-moe-16b-chat":
+
+        model = DeepseekForCausalLM.from_pretrained(args.model_path, quantization_config=bnb_config,trust_remote_code=True )
+    
+    elif args.model_path == "meta-llama/Llama-3.1-8B-Instruct":
+
+        model = LlamaForCausalLM.from_pretrained(args.model_path, quantization_config=bnb_config)
+
+    # elif args.model_path == "Qwen/Qwen1.5-MoE-A2.7B-Chat-GPTQ-Int4":                
+    #     model = Qwen2MoeForCausalLM.from_pretrained(args.model_path, torch_dtype="auto")
+    
+    elif args.model_path == "Qwen/Qwen1.5-MoE-A2.7B-Chat":
+     
+        model = Qwen2MoeForCausalLM.from_pretrained(args.model_path, quantization_config=bnb_config)
+
+
+    else:
+        model = LlamaForCausalLM.from_pretrained(args.model_path,  torch_dtype=torch.bfloat16)
+
     model.to(torch.device(args.device))
     model.eval()
 
@@ -87,6 +115,8 @@ if __name__ == "__main__":
     max_len = 0
     length = []
     for subject in subcategory:
+        if cnt >= 100:
+                break
 
         test_df = pd.read_csv(
             os.path.join(args.data_dir, "test", subject + "_test.csv"), header=None
@@ -98,9 +128,11 @@ if __name__ == "__main__":
 
         for i in range(test_df.shape[0]):
             cnt += 1
+            if cnt >= 100:
+                break
             prompt_end = format_example(test_df, i, include_answer=False)
             prompt = train_prompt + prompt_end
-            inputs = tokenizer(prompt, padding="max_length", truncation=True, return_tensors="pt", max_length=args.max_length * (args.ntrain + 1)).to(args.device)
+            inputs = tokenizer(prompt, padding="max_length", truncation=True, return_tensors="pt", max_length=args.max_length).to(args.device)
             
             non_pad_token_count = inputs['attention_mask'].sum().item()
             max_len = max(max_len, non_pad_token_count)

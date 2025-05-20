@@ -1,10 +1,10 @@
-# AttnCache: Accelerating Self-Attention Inference on Big Memory Systems Using Attention Cache
+# AttnCache: Accelerating Self-Attention Inference Using Attention Cache
 
 ![schemes](figure/attncache_fig.png)
 
 ## Usage
 
-## Transformer Decoder (Llama)
+<!-- ## Transformer Decoder (Llama) -->
 
 
 ### Environment Setup
@@ -14,7 +14,8 @@ conda create -n AttnCache python=3.9
 conda activate AttnCache
 
 pip install torch torchvision torchaudio
-pip install transformers==4.50.3 accelerate datasets scikit-learn scipy matplotlib faiss-cpu
+pip install transformers==4.50.3 accelerate datasets scikit-learn scipy matplotlib faiss-cpu  
+pip install auto-gptq optimum bitsandbytes
 ```
 
 ### Download MMLU dataset
@@ -24,15 +25,12 @@ wget https://people.eecs.berkeley.edu/~hendrycks/data.tar
 
 tar -xf data.tar 
 ```
-
+## Quick Start:
 ### Collect Hidden States and Attention Maps 
-Run the following command to load the pre-trained BERT model from the `./trained_bert_sst2` directory, collect Hidden States and Attention Maps, and save them in `./BertDB`. 
+<!-- Run the following command to load the pre-trained BERT model from the `./trained_bert_sst2` directory, collect Hidden States and Attention Maps, and save them in `./BertDB`.  -->
 
 ```
-python collect_hs_apms.py \
-        --dataset sst2 \
-        --model-path ./trained_bert_sst2 \
-        --save-dir ./BertDB 
+python collect_hs_apms_llama.py --model-path meta-llama/Llama-3.2-3B-Instruct
 ```
 
 
@@ -40,11 +38,11 @@ python collect_hs_apms.py \
 
 
 ```
-python train_fp_and_build_db.py --save-dir ./BertDB
+python train_fp_and_build_db.py --epoch 3 --batchsize 32
 ```
 ## Evaluation
 ```
-python test.py --threshold 0.995
+python test_llama.py --threshold 0.995
 ```
 
 

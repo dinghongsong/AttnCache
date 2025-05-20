@@ -9,7 +9,8 @@ from torch.utils.data import DataLoader
 from itertools import combinations
 import torch
 from models.utils import LinearNet, HiddenStatesAMPsDataset, VecDB, Emb
-from models.utils import VecDB, Emb, LatencyCollector, register_forward_latency_collector, parse_args
+from models.utils import VecDB, Emb, parse_args
+import math
 
 import os
 from tqdm import tqdm
@@ -31,7 +32,11 @@ def create_pairs(inputs, args):
         length0 = torch.sum(attn_mask0[0,0,-1, :] == 0.0)
         length1 = torch.sum(attn_mask1[0,0,-1, :] == 0.0)
         
-        label = torch.sum(amp_diff, axis=tuple(range(1, amp_diff.ndim))) / seq_len  / num_head / 2 + torch.abs(length0 - length1)
+        term1 = torch.sum(amp_diff, axis=tuple(range(1, amp_diff.ndim)))  / num_head / seq_len / 2
+        term2 = torch.abs(length0 - length1)
+        # label = torch.sum(amp_diff, axis=tuple(range(1, amp_diff.ndim))) / seq_len  / num_head / 2 + torch.abs(length0 - length1)
+        label = term1  + term2
+
         # print("label: ", label)
         x0_data.append(x0)
         x1_data.append(x1)
@@ -43,7 +48,7 @@ def create_pairs(inputs, args):
     return x0_data, x1_data, labels
 
 def train_feature_projector(args):
-    model = LinearNet(args.model_path).to(args.device)
+    model = LinearNet(args).to(args.device)
     learning_rate = 0.1
     momentum = 0.9
     optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum)
@@ -105,12 +110,12 @@ def build_index_database(model, args):
 if __name__ == "__main__" :
 
     args = parse_args()
+    # if not os.path.isfile(args.feature_projector_save_path):
+    #     train_feature_projector(args)
     train_feature_projector(args)
-
-    feature_projector = Emb(args.feature_projector_save_path, args.model_path, args.device)
+    feature_projector = Emb(args)
     build_index_database(feature_projector, args)
     
-    #0.287
 
     
 

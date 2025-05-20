@@ -13,22 +13,103 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
 # from .modeling_llama import LlamaForCausalLM
 
 class LinearNet(nn.Module):
-    def __init__(self,model_name) -> None:
+    def __init__(self,args) -> None:
         super().__init__()
 
 
-        # bert
-        # self.fc1 = nn.Linear(12288, 128) # 7b 8b
-        # llama
-        if model_name == "meta-llama/Llama-3.1-8B-Instruct":
-            self.fc1 = nn.Linear(262144, 128).to(torch.bfloat16) #llama3-8b
-        if model_name == "meta-llama/Llama-3.2-3B-Instruct":
-            self.fc1 = nn.Linear(196608, 128).to(torch.bfloat16) #llama3-8b
+        if args.model_path == "meta-llama/Llama-3.2-3B-Instruct":
+            dtype = torch.bfloat16
 
+            # if args.ntrain == 5: #engineering
+            #     self.fc1 = nn.Linear(175104, 128).to(dtype) #5 shot
+            # elif args.ntrain == 4:
+            #     self.fc1 = nn.Linear(141312, 128).to(dtype) #4 shot
+            # elif args.ntrain == 3:
+            #     self.fc1 = nn.Linear(116736, 128).to(dtype) #3 shot
+            # elif args.ntrain == 2:
+            #     self.fc1 = nn.Linear(168960, 128).to(dtype) #2 shot
+            # elif args.ntrain == 1:
+            #     self.fc1 = nn.Linear(121344, 128).to(dtype) #1 shot
+            # elif args.ntrain == 0:
+            #     self.fc1 = nn.Linear(76800, 128).to(dtype) # 0 shot
 
-        self.fc2 = nn.Linear(128, 128).to(torch.bfloat16)
-        self.bn1 = nn.BatchNorm2d(1).to(torch.bfloat16)
-        self.bn2 = nn.BatchNorm1d(128).to(torch.bfloat16)
+            if args.ntrain == 5: #math
+                self.fc1 = nn.Linear(159744, 128).to(dtype) #5 shot
+            elif args.ntrain == 4:
+                self.fc1 = nn.Linear(147456, 128).to(dtype) #4 shot
+            elif args.ntrain == 3:
+                self.fc1 = nn.Linear(115200, 128).to(dtype) #3 shot
+            elif args.ntrain == 2:
+                self.fc1 = nn.Linear(164352, 128).to(dtype) #2 shot
+            elif args.ntrain == 1:
+                self.fc1 = nn.Linear(113664, 128).to(dtype) #1 shot
+            elif args.ntrain == 0:
+                self.fc1 = nn.Linear(144384, 128).to(dtype) # 0 shot
+        
+        if args.model_path == "meta-llama/Llama-3.1-8B-Instruct":
+            dtype = torch.float16
+
+            if args.ntrain == 5: #math
+                self.fc1 = nn.Linear(159744, 128).to(dtype) #5 shot
+            elif args.ntrain == 4:
+                self.fc1 = nn.Linear(147456, 128).to(dtype) #4 shot
+            elif args.ntrain == 3:
+                self.fc1 = nn.Linear(115200, 128).to(dtype) #3 shot
+            elif args.ntrain == 2:
+                self.fc1 = nn.Linear(164352, 128).to(dtype) #2 shot
+            elif args.ntrain == 1:
+                self.fc1 = nn.Linear(113664, 128).to(dtype) #1 shot
+            elif args.ntrain == 0:
+                self.fc1 = nn.Linear(192512, 128).to(dtype) # 0 shot
+        
+        if args.model_path == "deepseek-ai/deepseek-moe-16b-chat":
+            dtype = torch.float16
+            if args.ntrain == 5: #math
+                self.fc1 = nn.Linear(159744, 128).to(dtype) #5 shot
+            elif args.ntrain == 4:
+                self.fc1 = nn.Linear(147456, 128).to(dtype) #4 shot
+            elif args.ntrain == 3:
+                self.fc1 = nn.Linear(115200, 128).to(dtype) #3 shot
+            elif args.ntrain == 2:
+                self.fc1 = nn.Linear(164352, 128).to(dtype) #2 shot
+            elif args.ntrain == 1:
+                self.fc1 = nn.Linear(113664, 128).to(dtype) #1 shot
+            elif args.ntrain == 0:
+                self.fc1 = nn.Linear(96256, 128).to(dtype) # 0 shot
+            
+        if args.model_path ==  "Qwen/Qwen1.5-MoE-A2.7B-Chat-GPTQ-Int4":
+            dtype = torch.float16
+            if args.ntrain == 5: #math
+                self.fc1 = nn.Linear(159744, 128).to(dtype) #5 shot
+            elif args.ntrain == 4:
+                self.fc1 = nn.Linear(147456, 128).to(dtype) #4 shot
+            elif args.ntrain == 3:
+                self.fc1 = nn.Linear(115200, 128).to(dtype) #3 shot
+            elif args.ntrain == 2:
+                self.fc1 = nn.Linear(164352, 128).to(dtype) #2 shot
+            elif args.ntrain == 1:
+                self.fc1 = nn.Linear(113664, 128).to(dtype) #1 shot
+            elif args.ntrain == 0:
+                self.fc1 = nn.Linear(96256, 128).to(dtype) # 0 shot
+            
+        if args.model_path ==  "Qwen/Qwen1.5-MoE-A2.7B-Chat":
+            dtype = torch.float16
+            if args.ntrain == 5: #math
+                self.fc1 = nn.Linear(159744, 128).to(dtype) #5 shot
+            elif args.ntrain == 4:
+                self.fc1 = nn.Linear(147456, 128).to(dtype) #4 shot
+            elif args.ntrain == 3:
+                self.fc1 = nn.Linear(115200, 128).to(dtype) #3 shot
+            elif args.ntrain == 2:
+                self.fc1 = nn.Linear(164352, 128).to(dtype) #2 shot
+            elif args.ntrain == 1:
+                self.fc1 = nn.Linear(113664, 128).to(dtype) #1 shot
+            elif args.ntrain == 0:
+                self.fc1 = nn.Linear(96256, 128).to(dtype) # 0 shot
+
+        self.fc2 = nn.Linear(128, 128).to(dtype)
+        self.bn1 = nn.BatchNorm2d(1).to(dtype)
+        self.bn2 = nn.BatchNorm1d(128).to(dtype)
     
     def forward_once(self, x):
         x = torch.unsqueeze(x,1)
@@ -48,29 +129,24 @@ class LinearNet(nn.Module):
         return output1, output2
 
 class Emb():
-    def __init__(self, model_dir, model_name, device) -> None:
-        self.device = device
-        # self.emb = LinearNet(model_name).to_empty(device='cpu')#.to_empty('cpu')#.to(device)
-        # self.emb.load_state_dict(torch.load(model_dir, map_location=torch.device('cpu')))
-        # self.emb.eval()
+    def __init__(self, args) -> None:
+        self.device = args.device
 
-        self.emb = LinearNet(model_name).to(self.device)#.to_empty('cpu')#.to(device)
-        self.emb.load_state_dict(torch.load(model_dir, map_location=self.device))
+        self.emb = LinearNet(args).to(self.device)#.to_empty('cpu')#.to(device)
+        self.emb.load_state_dict(torch.load(args.feature_projector_save_path, map_location=self.device))
         self.emb.eval()
     def embed(self, inputs):
         """
         return a numpy obj
         """
-        # return self.emb.forward_once(torch.from_numpy(inputs)).detach().numpy()
         return self.emb.forward_once(inputs)
     
 class VecDB():
     def __init__(self, d=128, nlist=128, m=8, bit=8) -> None:
  
         quantizer = faiss.IndexFlatL2(d)
-        # self.index = faiss.IndexIVFPQ(quantizer, d, nlist, m, bit)
         self.index = faiss.IndexIVFFlat(quantizer, d, nlist)
-        # self.index = faiss.IndexFlatL2(d) 
+
     def train_index(self, embeddings):
         assert not self.index.is_trained
         self.index.train(embeddings)
@@ -81,14 +157,14 @@ class VecDB():
 
     def search(self, embedding, k=1, nprob = 128):
         self.index.nprob = nprob
-        D, I = self.index.search(embedding, k)#I为每个待检索query最相似TopK的索引list，D为其对应的距离
+        D, I = self.index.search(embedding, k)
         return D, I
     
     def load(self, path):
         self.index = faiss.read_index(path)
         return self
     
-    def save(self, save_path):#mlp_model_attn_mask-epoch{epoch}.pth
+    def save(self, save_path):
         faiss.write_index(self.index, save_path)
         
 
@@ -127,27 +203,27 @@ def register_forward_latency_collector(latency_collector, model):
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    # parser.add_argument("--model-path", type=str, default="meta-llama/Llama-3.2-3B-Instruct") 
-    # parser.add_argument("--save-dir", type=str, default="LlamaDB")
+    parser.add_argument("--model-path", type=str, default="meta-llama/Llama-3.2-3B-Instruct")     
+    # parser.add_argument("--model-path", type=str, default="meta-llama/Llama-3.1-8B-Instruct")     
+    # parser.add_argument("--model-path", type=str, default="deepseek-ai/deepseek-moe-16b-chat")  
+    # parser.add_argument("--model-path", type=str, default="Qwen/Qwen1.5-MoE-A2.7B-Chat-GPTQ-Int4")  
+    # parser.add_argument("--model-path", type=str, default="Qwen/Qwen1.5-MoE-A2.7B-Chat")  
 
-    parser.add_argument("--model-path", type=str, default="meta-llama/Llama-3.1-8B-Instruct")   
-    
-    
-    parser.add_argument("--threshold", type=float, default=0.995)
+    parser.add_argument("--data_dir", "-d", type=str, default="data")
+    default_device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    parser.add_argument('--device', type=str, default=default_device)
 
     # =========================== MMLU Dataset ===========================
-    parser.add_argument("--data_dir", "-d", type=str, default="data")
-    parser.add_argument("--ntrain", "-k", type=int, default=1)
-    parser.add_argument("--max-length", type=int, default=256)
+    parser.add_argument("--threshold", type=float, default=0.995)
+
+    parser.add_argument("--ntrain", "-k", type=int, default=0)
     parser.add_argument("--subcategory", type=str, choices=['math', 'health', 'physics', 'business', 'biology', 
                                                     'chemistry', 'computer science', 'economics', 
                                                     'engineering', 'philosophy', 'other', 'history', 
                                                     'geography', 'politics', 'psychology', 'culture', 'law'], 
                     default='math', help="17 subcategories in MMLU")
     
-    default_device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    # default_device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    parser.add_argument('--device', type=str, default=default_device)
+  
 
     # ======================== Feature Projector Training ===========================
     
@@ -155,11 +231,24 @@ def parse_args():
     parser.add_argument('--batchsize', '-b', type=int, default=32, help='Number of images in each mini-batch')
     
     args = parser.parse_args()
-    args.save_dir = os.path.join("DB", args.model_path, f'{args.ntrain}_shots')
+
+    if args.ntrain == 0: #math
+        args.max_length = 189
+    elif args.ntrain == 1:
+        args.max_length = 299
+    elif args.ntrain == 2:
+        args.max_length = 429
+    elif args.ntrain == 3:
+        args.max_length = 600
+    elif args.ntrain == 4:
+        args.max_length = 770
+    elif args.ntrain == 5:
+        args.max_length = 835
+
+    args.save_dir = os.path.join("DB", args.model_path, args.subcategory, f'{args.ntrain}_shots')
     args.feature_projector_save_path = os.path.join(args.save_dir, f'Embedding_models/mlp_model_attn_cache-epoch{args.epoch}.pth')
     args.vec_db_save_path = os.path.join(args.save_dir, f'VectorDB/attn_cache_epoch-{args.epoch}_vectors.faiss')
     
 
 
     return args
-
