@@ -51,12 +51,13 @@ python test_llama.py --threshold 0.995
 If you find AttnCache useful or relevant to your project and research, please kindly cite our paper:
 
 ```bibtex
-@article{xiao2023streamingllm,
+@article{song2025attncache,
         title={AttnCache: Accelerating Self-Attention Inference for LLM Prefill via Attention Cache},
-        author={Xiao, Guangxuan and Tian, Yuandong and Chen, Beidi and Han, Song and Lewis, Mike},
+        author={Song, Dinghong and Feng, Yuan and Wang, Yiwei and Chen, Shangye and Guyot, Cyril and Blagojevic, Filip and Jeon, Hyeran and Su, Pengfei and Li, Dong},
         journal={arXiv},
         year={2025}
-        }
+}
+
 ```
 
 
