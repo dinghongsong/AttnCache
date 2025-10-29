@@ -1,5 +1,4 @@
-# AttnCache: Accelerating Self-Attention Inference Using Attention Cache
-
+# AttnCache: Accelerating Self-Attention Inference for LLM Prefill via Attention Cache
 ![schemes](figure/attncache_fig.png)
 
 ## Usage
@@ -47,17 +46,17 @@ python test_llama.py --threshold 0.995
 
 
 
-<!-- ## Citation
+## Citation
 
 If you find AttnCache useful or relevant to your project and research, please kindly cite our paper:
 
 ```bibtex
 @article{xiao2023streamingllm,
-        title={Efficient Streaming Language Models with Attention Sinks},
+        title={AttnCache: Accelerating Self-Attention Inference for LLM Prefill via Attention Cache},
         author={Xiao, Guangxuan and Tian, Yuandong and Chen, Beidi and Han, Song and Lewis, Mike},
         journal={arXiv},
-        year={2023}
+        year={2025}
         }
-``` -->
+```
 
 
